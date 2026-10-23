@@ -1,0 +1,36 @@
+From 1cf2b91a808351079df530944204eac28c5d63b4 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 20:04:28 +0000
+Subject: [PATCH 14/20] showmo: day mode (no IR on this camera), drop unused
+ WebRTC/RTMP push/VPN
+
+The WinEye has no IR LEDs ("full color night vision, no infrared",
+F1.0 lens): auto day/night would only turn the picture black and white
+at night. Keep the ISP in day mode like the vendor firmware.
+
+WebRTC/WebTorrent (disabled anyway: no memory left next to the IVDC
+main stream), RTMP push and WireGuard are not used by an NVR-only
+camera.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../showmo_prj007_t32nq_gc8602_aic8800d80_defconfig         | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+index 667c7d3..5472087 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+@@ -52,3 +52,9 @@ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_MAX_CHARS="20"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_FONT_SIZE="64"
+ BR2_THINGINO_BUTTON=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_AUDIO_AO_VOLUME="40"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_IRCUT_MODE="day"
++BR2_PACKAGE_THINGINO_VPN_NONE=y
++# BR2_PACKAGE_THINGINO_VPN_WIREGUARD is not set
++# BR2_PACKAGE_THINGINO_RAPTOR_WEBRTC is not set
++# BR2_PACKAGE_THINGINO_RAPTOR_WEBTORRENT is not set
++# BR2_PACKAGE_THINGINO_RAPTOR_RSP is not set
+-- 
+2.43.0
+

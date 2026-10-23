@@ -1,0 +1,930 @@
+From 504b1623bbd14f5464436cbad6dc31e95b07a014 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 20:51:53 +0000
+Subject: [PATCH 17/20] showmo: two-page web UI (live view + settings)
+
+Replaces the stock web UI (post-build.sh prunes /var/www to a whitelist):
+- index.html: 1 fps full-resolution MJPEG preview, snapshot, RTSP URL
+- config.html: state, stream rate with a Default button (25 fps, 15 Mb/s),
+  timestamp overlay (on/off, per-element size, time zone), RTSP and root
+  credentials, SSH keys, camera name, Wi-Fi, reboot, firmware update
+  (kernel + rootfs only: u-boot and settings are kept)
+Login and sessions come from thingino-webui (root account).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../overlay/var/www/a/showmo.css              | 119 ++++++
+ .../overlay/var/www/a/showmo.js               |  65 ++++
+ .../overlay/var/www/config.html               | 215 +++++++++++
+ .../overlay/var/www/index.html                |  41 +++
+ .../overlay/var/www/login.html                |  36 ++
+ .../overlay/var/www/x/showmo.cgi              | 340 ++++++++++++++++++
+ .../post-build.sh                             |  38 ++
+ 7 files changed, 854 insertions(+)
+ create mode 100644 configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/a/showmo.css
+ create mode 100644 configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/a/showmo.js
+ create mode 100644 configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
+ create mode 100644 configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/index.html
+ create mode 100644 configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/login.html
+ create mode 100755 configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi
+ create mode 100755 configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/post-build.sh
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/a/showmo.css b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/a/showmo.css
+new file mode 100644
+index 0000000..004e273
+--- /dev/null
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/a/showmo.css
+@@ -0,0 +1,119 @@
++:root {
++	--bg: #f4f5f7;
++	--card: #ffffff;
++	--text: #1d2330;
++	--muted: #667085;
++	--line: #d9dde3;
++	--accent: #2563eb;
++	--danger: #c2410c;
++	--ok: #15803d;
++}
++
++@media (prefers-color-scheme: dark) {
++	:root {
++		--bg: #12151b;
++		--card: #1b2029;
++		--text: #e6e9ef;
++		--muted: #98a2b3;
++		--line: #2c3340;
++		--accent: #60a5fa;
++		--danger: #fb923c;
++		--ok: #4ade80;
++	}
++}
++
++* { box-sizing: border-box; }
++
++body {
++	margin: 0;
++	background: var(--bg);
++	color: var(--text);
++	font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
++}
++
++header {
++	display: flex;
++	align-items: center;
++	gap: 16px;
++	padding: 10px 16px;
++	background: var(--card);
++	border-bottom: 1px solid var(--line);
++}
++
++header strong { margin-right: auto; }
++header a { color: var(--text); text-decoration: none; padding: 6px 10px; border-radius: 6px; }
++header a.on { background: var(--bg); font-weight: 600; }
++
++main { max-width: 1100px; margin: 0 auto; padding: 16px; }
++
++.card {
++	background: var(--card);
++	border: 1px solid var(--line);
++	border-radius: 10px;
++	padding: 16px;
++	margin-bottom: 16px;
++}
++
++.card h2 { margin: 0 0 12px; font-size: 17px; }
++.hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
++
++.live { width: 100%; background: #000; border-radius: 8px; display: block; aspect-ratio: 16 / 9; object-fit: contain; }
++
++.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
++
++label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: 13px; }
++
++input, select, textarea {
++	width: 100%;
++	padding: 8px 10px;
++	border: 1px solid var(--line);
++	border-radius: 6px;
++	background: var(--bg);
++	color: var(--text);
++	font: inherit;
++}
++
++textarea { min-height: 80px; font-family: ui-monospace, monospace; font-size: 12px; }
++input[type=checkbox] { width: auto; margin-right: 6px; }
++
++.row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
++
++button {
++	padding: 8px 14px;
++	border: 1px solid var(--accent);
++	border-radius: 6px;
++	background: var(--accent);
++	color: #fff;
++	font: inherit;
++	cursor: pointer;
++}
++
++button.alt { background: transparent; color: var(--accent); }
++button.danger { border-color: var(--danger); background: var(--danger); }
++button:disabled { opacity: .5; cursor: wait; }
++
++table { width: 100%; border-collapse: collapse; }
++td { padding: 4px 0; border-bottom: 1px solid var(--line); }
++td:first-child { color: var(--muted); width: 40%; }
++
++code { word-break: break-all; }
++
++#toast {
++	position: fixed;
++	right: 16px;
++	bottom: 16px;
++	max-width: 420px;
++	padding: 10px 14px;
++	border-radius: 8px;
++	background: var(--card);
++	border: 1px solid var(--line);
++	box-shadow: 0 4px 16px rgba(0, 0, 0, .2);
++	display: none;
++}
++
++#toast.ok { border-color: var(--ok); }
++#toast.err { border-color: var(--danger); }
++
++.banner { background: var(--danger); color: #fff; padding: 10px 16px; display: none; }
++
++progress { width: 100%; }
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/a/showmo.js b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/a/showmo.js
+new file mode 100644
+index 0000000..96bf9da
+--- /dev/null
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/a/showmo.js
+@@ -0,0 +1,65 @@
++// Shared helpers for the Showmo web UI pages.
++const CGI = "/x/showmo.cgi";
++
++function b64(s) {
++	return btoa(unescape(encodeURIComponent(s)));
++}
++
++function toast(msg, ok = true) {
++	const t = document.getElementById("toast");
++	t.textContent = msg;
++	t.className = ok ? "ok" : "err";
++	t.style.display = "block";
++	clearTimeout(toast.timer);
++	toast.timer = setTimeout(() => (t.style.display = "none"), ok ? 5000 : 9000);
++}
++
++async function getJSON(action) {
++	const r = await fetch(`${CGI}?a=${action}`, { cache: "no-store" });
++	if (r.status === 401) location.href = "login.html";
++	return r.json();
++}
++
++// POST one "key=<base64>" line per field; resolves to the JSON reply.
++async function post(action, fields = {}) {
++	const body = Object.entries(fields).map(([k, v]) => `${k}=${b64(String(v))}`).join("\n");
++	const r = await fetch(`${CGI}?a=${action}`, {
++		method: "POST",
++		headers: { "Content-Type": "text/plain" },
++		body,
++	});
++	if (r.status === 401) location.href = "login.html";
++	const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
++	toast(j.ok ? j.message || "OK" : j.error || "Erreur", j.ok);
++	return j;
++}
++
++// Runs fn with the button disabled, for buttons that trigger slow actions.
++async function busy(btn, fn) {
++	btn.disabled = true;
++	try {
++		return await fn();
++	} finally {
++		btn.disabled = false;
++	}
++}
++
++async function requireLogin() {
++	const s = await fetch("/x/session-status.cgi", { cache: "no-store" }).then((r) => r.json()).catch(() => ({}));
++	if (!s.authenticated) location.href = "login.html";
++	return s;
++}
++
++function rtspUrl(st, withPass = false) {
++	const user = st.rtsp.user || "";
++	const pass = withPass ? ":<mot de passe>" : "";
++	const port = st.rtsp.port && st.rtsp.port !== "554" ? `:${st.rtsp.port}` : ":554";
++	return `rtsp://${user}${pass}@${st.device.ip}${port}/${st.rtsp.endpoint || "ch0"}`;
++}
++
++function uptime(s) {
++	const d = Math.floor(s / 86400);
++	const h = Math.floor((s % 86400) / 3600);
++	const m = Math.floor((s % 3600) / 60);
++	return (d ? `${d} j ` : "") + `${h} h ${m} min`;
++}
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
+new file mode 100644
+index 0000000..00ff460
+--- /dev/null
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
+@@ -0,0 +1,215 @@
++<!doctype html>
++<html lang="fr">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>Config — caméra</title>
++<link rel="stylesheet" href="/a/showmo.css">
++</head>
++<body>
++<div id="defpw" class="banner">Mot de passe root par défaut : changez-le ci-dessous (section Compte root).</div>
++<header>
++	<strong id="name">Caméra</strong>
++	<a href="index.html">Direct</a>
++	<a href="config.html" class="on">Config</a>
++	<a href="/x/logout.cgi">Déconnexion</a>
++</header>
++<main class="grid">
++	<div class="card">
++		<h2>État</h2>
++		<table id="state"></table>
++		<div class="row"><button id="reboot" class="danger">Redémarrer</button></div>
++	</div>
++
++	<div class="card">
++		<h2>Flux RTSP</h2>
++		<p class="hint" id="res"></p>
++		<label for="fps">Images par seconde</label>
++		<select id="fps"><option>25</option><option>20</option><option>15</option></select>
++		<label for="mbps">Débit (Mb/s, CBR)</label>
++		<input id="mbps" type="number" min="2" max="20" step="1">
++		<p class="hint">Le capteur tourne à 25 i/s : 20 ou 15 i/s donnent un rythme irrégulier. Valeurs de base : 25 i/s, 15 Mb/s.</p>
++		<div class="row">
++			<button id="stream">Appliquer</button>
++			<button id="streamdef" class="alt">Défaut (25 i/s · 15 Mb/s)</button>
++		</div>
++	</div>
++
++	<div class="card">
++		<h2>Horodatage</h2>
++		<label><input id="osdvis" type="checkbox">Afficher la date et l'heure (en haut à gauche)</label>
++		<label for="osdsize">Taille (pixels, en 2560×1440)</label>
++		<select id="osdsize"></select>
++		<label for="tz">Fuseau horaire</label>
++		<select id="tz"></select>
++		<p class="hint">Appliquer redémarre la vidéo (environ 20 s).</p>
++		<div class="row"><button id="osd">Appliquer</button></div>
++	</div>
++
++	<div class="card">
++		<h2>Identifiants RTSP</h2>
++		<label for="ruser">Utilisateur</label>
++		<input id="ruser" autocomplete="off">
++		<label for="rpass">Nouveau mot de passe</label>
++		<input id="rpass" type="password" autocomplete="new-password">
++		<p class="hint">À reporter dans Blue Iris. Sans espace ni « # ».</p>
++		<div class="row"><button id="rtsp">Enregistrer</button></div>
++	</div>
++
++	<div class="card">
++		<h2>Réseau</h2>
++		<label for="host">Nom de la caméra (réseau, DHCP)</label>
++		<input id="host" autocomplete="off">
++		<div class="row"><button id="hostbtn" class="alt">Renommer</button></div>
++		<label for="ssid">WiFi (SSID)</label>
++		<input id="ssid" autocomplete="off">
++		<label for="wpass">Mot de passe</label>
++		<input id="wpass" type="password" autocomplete="new-password">
++		<p class="hint">Pris en compte au redémarrage. Une erreur rend la caméra injoignable : bouton reset 5 s pour revenir en mode configuration.</p>
++		<div class="row"><button id="wifi">Enregistrer le WiFi</button></div>
++	</div>
++
++	<div class="card">
++		<h2>Compte root (web, SSH, console)</h2>
++		<label for="pw1">Nouveau mot de passe</label>
++		<input id="pw1" type="password" autocomplete="new-password">
++		<label for="pw2">Confirmer</label>
++		<input id="pw2" type="password" autocomplete="new-password">
++		<div class="row"><button id="pw">Changer</button></div>
++		<label for="keys">Clés SSH autorisées (une par ligne)</label>
++		<textarea id="keys" placeholder="ssh-ed25519 AAAA… utilisateur@poste"></textarea>
++		<p class="hint" id="keyinfo"></p>
++		<div class="row"><button id="sshkey" class="alt">Remplacer les clés</button></div>
++	</div>
++
++	<div class="card">
++		<h2>Mise à jour du firmware</h2>
++		<p class="hint">Image complète thingino Showmo (16 Mo). Seuls le noyau et le système sont réécrits : u-boot et configuration conservés. Ne pas couper l'alimentation pendant l'écriture.</p>
++		<input id="fw" type="file" accept=".bin">
++		<progress id="fwprog" value="0" max="100" hidden></progress>
++		<p class="hint" id="fwinfo"></p>
++		<div class="row"><button id="fwgo">Envoyer et vérifier</button><button id="fwapply" class="danger" hidden>Installer</button></div>
++	</div>
++</main>
++<div id="toast"></div>
++<script src="/a/showmo.js"></script>
++<script>
++const $ = (id) => document.getElementById(id);
++
++async function load() {
++	const st = await getJSON("status");
++	const d = st.device;
++	$("name").textContent = d.hostname;
++	$("defpw").style.display = st.default_password ? "block" : "none";
++	const [used, total] = (d.emmc || "0 0").split(" ").map(Number);
++	const rows = [
++		["Adresse IP", d.ip],
++		["MAC", d.mac],
++		["WiFi", `${d.ssid} (${d.signal} dBm)`],
++		["En marche depuis", uptime(d.uptime)],
++		["Température SoC", d.temp ? `${Number(d.temp).toFixed(1)} °C` : "—"],
++		["eMMC", total ? `${(used / 1048576).toFixed(1)} / ${(total / 1048576).toFixed(1)} Go` : "non montée"],
++		["Firmware", d.build],
++		["URL RTSP", rtspUrl(st, true)],
++	];
++	$("state").innerHTML = "";
++	for (const [k, v] of rows) {
++		const tr = $("state").insertRow();
++		tr.insertCell().textContent = k;
++		tr.insertCell().textContent = v || "—";
++	}
++	$("res").textContent = `${st.stream.width}×${st.stream.height}, actuellement ${st.stream.fps} i/s, ${st.stream.bitrate / 1e6} Mb/s ${st.stream.rc_mode.toUpperCase()}`;
++	$("fps").value = st.stream.fps;
++	$("mbps").value = Math.round(st.stream.bitrate / 1e6);
++	$("osdvis").checked = st.osd.visible === "true";
++	$("osdsize").innerHTML = st.osd.sizes.split(" ").map((s) => `<option>${s}</option>`).join("");
++	$("osdsize").value = st.osd.size || "64";
++	$("ruser").value = st.rtsp.user;
++	$("ssid").value = d.ssid;
++	$("host").value = d.hostname;
++	$("keyinfo").textContent = `${st.ssh_keys} clé(s) enregistrée(s).`;
++	const tz = await getJSON("tzlist");
++	$("tz").innerHTML = tz.map((z) => `<option>${z.n}</option>`).join("");
++	$("tz").value = st.tz;
++}
++
++$("stream").onclick = (e) => busy(e.target, () => post("stream", { fps: $("fps").value, mbps: $("mbps").value }).then(load));
++$("streamdef").onclick = (e) => busy(e.target, () => post("stream-default").then(load));
++
++$("osd").onclick = (e) => busy(e.target, async () => {
++	const tzNow = (await getJSON("status")).tz;
++	if ($("tz").value !== tzNow) await post("tz", { tz: $("tz").value });
++	await post("osd", { visible: $("osdvis").checked ? "true" : "false", size: $("osdsize").value });
++});
++
++$("rtsp").onclick = (e) => busy(e.target, async () => {
++	if (!$("rpass").value) return toast("Entrez le nouveau mot de passe RTSP", false);
++	const j = await post("rtsp", { user: $("ruser").value, pass: $("rpass").value });
++	if (j.ok) { $("rpass").value = ""; load(); }
++});
++
++$("hostbtn").onclick = (e) => busy(e.target, () => post("hostname", { name: $("host").value }).then(load));
++
++$("wifi").onclick = (e) => busy(e.target, async () => {
++	if (!confirm(`Enregistrer le réseau « ${$("ssid").value} » ? Il sera utilisé au prochain redémarrage.`)) return;
++	const j = await post("wifi", { ssid: $("ssid").value, pass: $("wpass").value });
++	if (j.ok) $("wpass").value = "";
++});
++
++$("pw").onclick = (e) => busy(e.target, async () => {
++	if ($("pw1").value !== $("pw2").value) return toast("Les deux mots de passe diffèrent", false);
++	const j = await post("password", { pw: $("pw1").value });
++	if (j.ok) { $("pw1").value = $("pw2").value = ""; $("defpw").style.display = "none"; }
++});
++
++$("sshkey").onclick = (e) => busy(e.target, () => post("sshkey", { key: $("keys").value }).then(load));
++
++$("reboot").onclick = (e) => {
++	if (confirm("Redémarrer la caméra ? Le flux sera coupé environ 40 s.")) busy(e.target, () => post("reboot"));
++};
++
++$("fwgo").onclick = (e) => {
++	const f = $("fw").files[0];
++	if (!f) return toast("Choisissez un fichier .bin", false);
++	if (f.size !== 16777216) return toast("Il faut l'image complète de 16 Mo", false);
++	e.target.disabled = true;
++	const x = new XMLHttpRequest();
++	x.open("POST", `${CGI}?a=upload`);
++	x.setRequestHeader("Content-Type", "application/octet-stream");
++	$("fwprog").hidden = false;
++	x.upload.onprogress = (p) => ($("fwprog").value = (100 * p.loaded) / p.total);
++	x.onload = async () => {
++		e.target.disabled = false;
++		const up = JSON.parse(x.responseText || "{}");
++		if (!up.ok) return toast(up.error || "Envoi échoué", false);
++		const c = await post("upgrade-check");
++		if (!c.ok) return;
++		$("fwinfo").textContent = `Image valide (md5 ${c.md5}) : noyau ${c.kernel} o, système ${c.rootfs} o.`;
++		$("fwapply").hidden = false;
++	};
++	x.onerror = () => { e.target.disabled = false; toast("Envoi échoué", false); };
++	x.send(f);
++};
++
++$("fwapply").onclick = async (e) => {
++	if (!confirm("Installer cette image ? La caméra redémarrera. Ne pas couper l'alimentation.")) return;
++	e.target.disabled = $("fwgo").disabled = true;
++	const j = await post("upgrade-apply");
++	if (!j.ok) return;
++	const poll = setInterval(async () => {
++		const l = await getJSON("upgrade-log").catch(() => null);
++		if (!l) return;
++		$("fwinfo").textContent = l.log.split("|").filter(Boolean).pop() || "";
++		if (/FAIL/.test(l.log)) { clearInterval(poll); toast("Échec : " + l.log, false); }
++		if (/DONE/.test(l.log)) {
++			clearInterval(poll);
++			$("fwinfo").textContent = "Écrit et vérifié. Redémarrage… la page se rechargera.";
++			setTimeout(() => location.reload(), 60000);
++		}
++	}, 2000);
++};
++
++requireLogin().then(load);
++</script>
++</body>
++</html>
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/index.html b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/index.html
+new file mode 100644
+index 0000000..372f9c5
+--- /dev/null
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/index.html
+@@ -0,0 +1,41 @@
++<!doctype html>
++<html lang="fr">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>Direct — caméra</title>
++<link rel="stylesheet" href="/a/showmo.css">
++</head>
++<body>
++<header>
++	<strong id="name">Caméra</strong>
++	<a href="index.html" class="on">Direct</a>
++	<a href="config.html">Config</a>
++	<a href="/x/logout.cgi">Déconnexion</a>
++</header>
++<main>
++	<div class="card">
++		<img id="live" class="live" alt="Aperçu en direct">
++		<p class="hint">Aperçu à 1 image/s (JPEG pleine résolution). Le flux vidéo complet (25 i/s) est en RTSP, pour Blue Iris ou VLC :</p>
++		<p><code id="rtsp">…</code></p>
++		<div class="row">
++			<button id="copy" class="alt">Copier l'URL RTSP</button>
++			<a href="/x/showmo.cgi?a=snap" target="_blank"><button class="alt" type="button">Photo pleine résolution</button></a>
++		</div>
++	</div>
++</main>
++<div id="toast"></div>
++<script src="/a/showmo.js"></script>
++<script>
++(async () => {
++	await requireLogin();
++	document.getElementById("live").src = "/x/ch0.mjpg";
++	const st = await getJSON("status");
++	document.getElementById("name").textContent = st.device.hostname;
++	document.getElementById("rtsp").textContent = rtspUrl(st, true);
++	document.getElementById("copy").onclick = () =>
++		navigator.clipboard.writeText(rtspUrl(st)).then(() => toast("URL copiée (sans le mot de passe)"));
++})();
++</script>
++</body>
++</html>
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/login.html b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/login.html
+new file mode 100644
+index 0000000..18edf26
+--- /dev/null
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/login.html
+@@ -0,0 +1,36 @@
++<!doctype html>
++<html lang="fr">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>Connexion — caméra</title>
++<link rel="stylesheet" href="/a/showmo.css">
++</head>
++<body>
++<main style="max-width: 380px; margin-top: 10vh">
++	<div class="card">
++		<h2>Caméra Showmo WinEye</h2>
++		<form id="f">
++			<label for="pw">Mot de passe root</label>
++			<input id="pw" type="password" autocomplete="current-password" autofocus required>
++			<div class="row"><button type="submit">Connexion</button></div>
++		</form>
++	</div>
++</main>
++<div id="toast"></div>
++<script src="/a/showmo.js"></script>
++<script>
++document.getElementById("f").addEventListener("submit", async (e) => {
++	e.preventDefault();
++	const r = await fetch("/x/login.cgi", {
++		method: "POST",
++		headers: { "Content-Type": "application/json" },
++		body: JSON.stringify({ username: "root", password: b64(document.getElementById("pw").value), encoding: "base64" }),
++	});
++	const j = await r.json().catch(() => ({}));
++	if (j.success) location.href = j.is_default_password ? "config.html" : "index.html";
++	else toast("Mot de passe incorrect", false);
++});
++</script>
++</body>
++</html>
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi
+new file mode 100755
+index 0000000..078f069
+--- /dev/null
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi
+@@ -0,0 +1,340 @@
++#!/bin/sh
++# showmo.cgi -- backend of the simplified web UI for the Showmo WinEye
++# (pages: index.html = live view, config.html = settings).
++#
++# GET  ?a=status                 settings + device state as JSON
++# GET  ?a=upgrade-log            progress of a firmware upgrade
++# POST ?a=<action>               body: one "key=<base64 value>" per line
++#      password  pw              root password (web UI, SSH, console)
++#      sshkey    key             /root/.ssh/authorized_keys
++#      rtsp      user pass       RTSP credentials
++#      wifi      ssid pass       Wi-Fi network (applied at next reboot)
++#      hostname  name            network name (DHCP, mDNS)
++#      tz        tz              time zone name from /usr/share/tz.json
++#      osd       visible size    timestamp overlay
++#      stream    fps mbps        main stream rate
++#      stream-default            back to 25 fps / GOP 25 / CBR 15 Mb/s
++#      reboot
++# POST ?a=upload                 raw firmware image (application/octet-stream)
++# POST ?a=upgrade-check          validate the uploaded image
++# POST ?a=upgrade-apply          write kernel + rootfs, keep u-boot and config
++
++. /var/www/x/auth.sh
++require_auth
++
++CONF=/etc/raptor.conf
++TZ_DB=/usr/share/tz.json
++UPLOAD=/mnt/mmcblk0p1/showmo-upload.bin
++UPLOG=/tmp/showmo-upgrade.log
++DEFAULT_FPS=25
++DEFAULT_BPS=15000000
++OSD_SIZES="32 40 48 56 64 72 80 96"
++NL='
++'
++
++reply() {
++	printf 'Content-Type: application/json\r\nCache-Control: no-store\r\n\r\n%s\n' "$1"
++	exit 0
++}
++
++fail() {
++	printf 'Status: %s\r\nContent-Type: application/json\r\nCache-Control: no-store\r\n\r\n' "${2:-400 Bad Request}"
++	printf '{"ok":false,"error":"%s"}\n' "$1"
++	exit 0
++}
++
++ok() {
++	reply "{\"ok\":true,\"message\":\"$(esc "$1")\"}"
++}
++
++esc() {
++	printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr -d '\000-\037'
++}
++
++# Body of a form POST: one "key=<base64>" per line.
++read_form() {
++	BODY=$(head -c "${CONTENT_LENGTH:-0}")
++}
++
++field() {
++	printf '%s\n' "$BODY" | sed -n "s/^$1=//p" | head -n 1 | base64 -d 2>/dev/null
++}
++
++# Value check shared by every text field: one line, printable, no '#'
++# (raptor.conf treats it as the start of a comment).
++plain() {
++	case "$1" in
++		*"$NL"* | *'#'*) return 1 ;;
++	esac
++	[ -z "$(printf '%s' "$1" | tr -d '\040-\176')" ]
++}
++
++cget() {
++	v=$(raptorctl config get "$1" "$2" 2>/dev/null | tr -d '\r')
++	if [ -z "$v" ]; then
++		v=$(awk -v s="[$1]" -v k="$2" '
++			$0 == s { f = 1; next }
++			/^\[/ { f = 0 }
++			f && $1 == k { sub(/^[^=]*= */, ""); sub(/ +#.*/, ""); print; exit }
++		' "$CONF")
++	fi
++	printf '%s' "$v"
++}
++
++cset() {
++	raptorctl config set "$1" "$2" "$3" >/dev/null 2>&1 || fail "raptor is not running" "503 Service Unavailable"
++}
++
++csave() {
++	raptorctl config save >/dev/null 2>&1 || fail "could not save $CONF" "500 Internal Server Error"
++	sync
++}
++
++# Run a command detached from the CGI so the reply is sent first.
++later() {
++	setsid sh -c "sleep 1; $1" </dev/null >/dev/null 2>&1 &
++}
++
++status() {
++	ip=$(ip -4 -o addr show wlan0 2>/dev/null | awk '{ sub(/\/.*/, "", $4); print $4; exit }')
++	mac=$(cat /sys/class/net/wlan0/address 2>/dev/null)
++	ssid=$(sed -n 's/^[[:space:]]*ssid="\(.*\)"$/\1/p' /etc/wpa_supplicant.conf 2>/dev/null | head -n 1)
++	signal=$(awk '/wlan0:/ { sub(/\./, "", $4); print $4 }' /proc/net/wireless)
++	uptime=$(cut -d. -f1 /proc/uptime)
++	temp=$(sed -n 's/.*:\([0-9.]*\).*/\1/p' /proc/jz/temp/temperature 2>/dev/null)
++	build=$(sed -n 's/^BUILD_ID="\(.*\)"$/\1/p' /etc/os-release)
++	emmc=$(df -k /mnt/mmcblk0p1 2>/dev/null | awk 'NR == 2 { print $3 " " $2 }')
++	tz=$(cat /etc/timezone 2>/dev/null)
++	keys=0
++	[ -f /root/.ssh/authorized_keys ] && keys=$(grep -cE '^(ssh-|ecdsa-)' /root/.ssh/authorized_keys)
++	reply "{\"ok\":true,
++\"device\":{\"hostname\":\"$(esc "$(hostname)")\",\"ip\":\"$ip\",\"mac\":\"$mac\",\"ssid\":\"$(esc "$ssid")\",\"signal\":\"${signal:-}\",\"uptime\":${uptime:-0},\"temp\":\"${temp:-}\",\"build\":\"$(esc "$build")\",\"emmc\":\"${emmc:-}\"},
++\"rtsp\":{\"user\":\"$(esc "$(cget rtsp username)")\",\"port\":\"$(cget rtsp port)\",\"endpoint\":\"$(cget rtsp endpoint_main)\"},
++\"stream\":{\"width\":\"$(cget stream0 width)\",\"height\":\"$(cget stream0 height)\",\"fps\":\"$(cget stream0 fps)\",\"gop\":\"$(cget stream0 gop)\",\"bitrate\":\"$(cget stream0 bitrate)\",\"rc_mode\":\"$(cget stream0 rc_mode)\"},
++\"osd\":{\"visible\":\"$(cget osd.timestamp visible)\",\"size\":\"$(cget osd.timestamp font_size)\",\"sizes\":\"$OSD_SIZES\"},
++\"tz\":\"$(esc "$tz")\",\"ssh_keys\":$keys,\"default_password\":${SESSION_IS_DEFAULT_PASSWORD:-false}}"
++}
++
++set_stream() {
++	fps=$1
++	bps=$2
++	cset stream0 fps "$fps"
++	cset stream0 gop "$fps"
++	cset stream0 bitrate "$bps"
++	cset stream0 rc_mode cbr
++	csave
++	raptorctl rvd set-fps 0 "$fps" >/dev/null 2>&1
++	raptorctl rvd set-gop 0 "$fps" >/dev/null 2>&1
++	raptorctl rvd set-rc-mode 0 cbr "$bps" >/dev/null 2>&1
++	ok "Flux : $fps i/s, $((bps / 1000000)) Mb/s CBR"
++}
++
++# Big-endian / little-endian integer at a byte offset of a file.
++be32() {
++	dd if="$1" bs=1 skip="$2" count=4 2>/dev/null | hexdump -v -e '4/1 "%02x"'
++}
++
++le32() {
++	dd if="$1" bs=1 skip="$2" count=4 2>/dev/null | hexdump -v -e '1/4 "%u"'
++}
++
++hex2dec() {
++	printf '%d' "0x$1"
++}
++
++# Checks the uploaded file is a full thingino image for this board and that
++# its kernel and rootfs fit this camera's partitions. Sets K_LEN and R_LEN.
++check_image() {
++	[ -f "$UPLOAD" ] || fail "aucun fichier reçu"
++	size=$(wc -c <"$UPLOAD")
++	[ "$size" -eq 16777216 ] || fail "taille inattendue ($size octets) : il faut l'image complète de 16 Mo"
++	[ "$(be32 "$UPLOAD" $((0x70000)))" = "27051956" ] || fail "pas de noyau uImage à 0x70000"
++	[ "$(dd if="$UPLOAD" bs=1 skip=$((0x200000)) count=4 2>/dev/null)" = "hsqs" ] || fail "pas de squashfs à 0x200000"
++	mtd3=$(hex2dec "$(awk '$4 == "\"kernel\"" { print $2 }' /proc/mtd)")
++	mtd4=$(hex2dec "$(awk '$4 == "\"rootfs\"" { print $2 }' /proc/mtd)")
++	[ "$(awk '$4 == "\"kernel\"" { print $1 }' /proc/mtd)" = "mtd3:" ] || fail "partition kernel inattendue"
++	[ "$(awk '$4 == "\"rootfs\"" { print $1 }' /proc/mtd)" = "mtd4:" ] || fail "partition rootfs inattendue"
++	K_LEN=$(( $(hex2dec "$(be32 "$UPLOAD" $((0x70000 + 12)))") + 64 ))
++	[ "$K_LEN" -le "$mtd3" ] || fail "noyau trop grand ($K_LEN > $mtd3)"
++	K_LEN=$mtd3
++	used=$(le32 "$UPLOAD" $((0x200000 + 40)))
++	R_LEN=$(( (used + 32767) / 32768 * 32768 ))
++	[ "$R_LEN" -le "$mtd4" ] || fail "rootfs trop grand pour cette caméra ($R_LEN > $mtd4) : flash complet nécessaire"
++}
++
++upgrade_apply() {
++	check_image
++	dir=$(dirname "$UPLOAD")
++	cat >/tmp/showmo-upgrade.sh <<EOF
++#!/bin/sh
++exec >$UPLOG 2>&1
++echo "start \$(date)"
++dd if=$UPLOAD of=$dir/showmo-kernel.bin bs=32768 skip=$((0x70000 / 32768)) count=$((K_LEN / 32768)) || { echo FAIL extract kernel; exit 1; }
++dd if=$UPLOAD of=$dir/showmo-rootfs.bin bs=32768 skip=$((0x200000 / 32768)) count=$((R_LEN / 32768)) || { echo FAIL extract rootfs; exit 1; }
++sync
++for p in rootfs:mtd4 kernel:mtd3; do
++	f=$dir/showmo-\${p%%:*}.bin
++	m=/dev/\${p#*:}
++	echo "write \$f -> \$m"
++	flashcp \$f \$m || { echo "FAIL flashcp \$m"; exit 1; }
++	want=\$(md5sum <\$f | cut -c1-32)
++	got=\$(dd if=\$m bs=32768 count=\$((\$(wc -c <\$f) / 32768)) 2>/dev/null | md5sum | cut -c1-32)
++	[ "\$want" = "\$got" ] || { echo "FAIL verify \$m \$want \$got"; exit 1; }
++	echo "OK \$m \$want"
++done
++rm -f $UPLOAD $dir/showmo-kernel.bin $dir/showmo-rootfs.bin
++sync
++echo "DONE, reboot"
++sleep 2
++reboot
++EOF
++	chmod +x /tmp/showmo-upgrade.sh
++	echo "queued $(date)" >"$UPLOG"
++	setsid /tmp/showmo-upgrade.sh </dev/null >/dev/null 2>&1 &
++	ok "Mise à jour lancée : ne pas couper l'alimentation, redémarrage automatique."
++}
++
++action=${QUERY_STRING#*a=}
++action=${action%%&*}
++case "$action" in *[!a-z-]*) fail "bad action" ;; esac
++
++if [ "$REQUEST_METHOD" = "GET" ]; then
++	case "$action" in
++		status) status ;;
++		snap)
++			# Full-resolution JPEG from rhd; the encoder idles without
++			# viewers, so give it time to wake (raptorctl save waits 3 s only).
++			printf 'Content-Type: image/jpeg\r\nCache-Control: no-store\r\n'
++			printf 'Content-Disposition: inline; filename=snapshot-%s.jpg\r\n\r\n' "$(date +%Y%m%d-%H%M%S)"
++			scheme=https
++			[ "$(cget http https)" = "false" ] && scheme=http
++			exec curl -skf --max-time 15 -u "$(cget http username):$(cget http password)" \
++				"$scheme://127.0.0.1:$(cget http port)/snap?stream=0"
++			;;
++		tzlist)
++			printf 'Content-Type: application/json\r\nCache-Control: max-age=86400\r\n\r\n'
++			cat "$TZ_DB"
++			exit 0
++			;;
++		upgrade-log) reply "{\"ok\":true,\"log\":\"$(esc "$(tr '\n' '|' <"$UPLOG" 2>/dev/null)")\"}" ;;
++		*) fail "unknown action" ;;
++	esac
++fi
++
++[ "$REQUEST_METHOD" = "POST" ] || fail "method not allowed" "405 Method Not Allowed"
++
++if [ "$action" = "upload" ]; then
++	mountpoint -q /mnt/mmcblk0p1 || fail "eMMC non montée : impossible de stocker l'image"
++	len=${CONTENT_LENGTH:-0}
++	[ "$len" -eq 16777216 ] || fail "il faut l'image complète de 16 Mo ($len octets reçus)"
++	head -c "$len" >"$UPLOAD" || fail "écriture impossible"
++	sync
++	reply "{\"ok\":true,\"size\":$(wc -c <"$UPLOAD"),\"md5\":\"$(md5sum <"$UPLOAD" | cut -c1-32)\"}"
++fi
++
++read_form
++
++case "$action" in
++	password)
++		pw=$(field pw)
++		plain "$pw" || fail "caractères non autorisés"
++		[ ${#pw} -ge 8 ] || fail "8 caractères minimum"
++		case "$pw" in *:*) fail "le caractère ':' est interdit" ;; esac
++		hash=$(mkpasswd -m sha512 "$pw") || fail "mkpasswd a échoué" "500 Internal Server Error"
++		echo "root:$hash" | chpasswd -e || fail "chpasswd a échoué" "500 Internal Server Error"
++		sync
++		ok "Mot de passe root changé (web, SSH, console)"
++		;;
++	sshkey)
++		key=$(field key)
++		printf '%s\n' "$key" | grep -v '^[[:space:]]*$' | while read -r line; do
++			case "$line" in ssh-* | ecdsa-*) ;; *) exit 1 ;; esac
++		done || fail "clé SSH invalide (ssh-ed25519, ssh-rsa ou ecdsa-…)"
++		mkdir -p /root/.ssh && chmod 700 /root/.ssh
++		printf '%s\n' "$key" | grep -v '^[[:space:]]*$' >/root/.ssh/authorized_keys
++		chmod 600 /root/.ssh/authorized_keys
++		sync
++		ok "Clés SSH enregistrées"
++		;;
++	rtsp)
++		user=$(field user)
++		pass=$(field pass)
++		printf '%s' "$user" | grep -qE '^[A-Za-z0-9._-]{1,32}$' || fail "utilisateur : lettres, chiffres, . _ - (32 max)"
++		plain "$pass" || fail "mot de passe : caractères imprimables sans espace ni #"
++		case "$pass" in *' '*) fail "mot de passe : pas d'espace" ;; esac
++		[ ${#pass} -ge 4 ] || fail "mot de passe trop court"
++		cset rtsp username "$user"
++		cset rtsp password "$pass"
++		csave
++		later "raptorctl rsd restart"
++		ok "Identifiants RTSP changés : reconnecter Blue Iris avec les nouveaux"
++		;;
++	wifi)
++		ssid=$(field ssid)
++		pass=$(field pass)
++		plain "$ssid" && plain "$pass" || fail "caractères non autorisés"
++		[ ${#ssid} -ge 1 ] && [ ${#ssid} -le 32 ] || fail "SSID : 1 à 32 caractères"
++		[ ${#pass} -ge 8 ] && [ ${#pass} -le 64 ] || fail "mot de passe WiFi : 8 à 63 caractères (ou clé hex de 64)"
++		cp /etc/wpa_supplicant.conf /etc/wpa_supplicant.conf.bak 2>/dev/null
++		wlan configure "$ssid" "$pass" >/dev/null 2>&1 || fail "wlan configure a échoué" "500 Internal Server Error"
++		sync
++		ok "WiFi enregistré : redémarrer la caméra pour l'appliquer"
++		;;
++	hostname)
++		name=$(field name)
++		printf '%s' "$name" | grep -qE '^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$' ||
++			fail "nom : lettres, chiffres et tirets (63 max, pas de tiret au début ni à la fin)"
++		hostname "$name"
++		echo "$name" >/etc/hostname
++		sed -i "/^127.0.1.1/c127.0.1.1\t$name" /etc/hosts
++		sync
++		later "/etc/init.d/S50mdnsd restart"
++		ok "Nom changé : $name (visible sur le réseau/DHCP après redémarrage)"
++		;;
++	tz)
++		tz=$(field tz)
++		plain "$tz" || fail "fuseau invalide"
++		grep -qF "\"n\":\"$tz\"" "$TZ_DB" || fail "fuseau inconnu"
++		timectl set-timezone --source user "$tz" >/dev/null 2>&1 || fail "timectl a échoué" "500 Internal Server Error"
++		timectl pin-timezone >/dev/null 2>&1
++		later "raptorctl rod restart"
++		ok "Fuseau horaire : $tz"
++		;;
++	osd)
++		visible=$(field visible)
++		size=$(field size)
++		case "$visible" in true | false) ;; *) fail "visible : true ou false" ;; esac
++		case " $OSD_SIZES " in *" $size "*) ;; *) fail "taille non autorisée" ;; esac
++		cset stream0 osd_enabled true
++		cset osd isp_osd true
++		cset osd.timestamp visible "$visible"
++		cset osd.timestamp font_size "$size"
++		csave
++		later "/etc/init.d/S31raptor restart"
++		ok "Horodatage enregistré : la vidéo redémarre (environ 20 s)"
++		;;
++	stream)
++		fps=$(field fps)
++		mbps=$(field mbps)
++		case "$fps" in 15 | 20 | 25) ;; *) fail "i/s : 15, 20 ou 25" ;; esac
++		printf '%s' "$mbps" | grep -qE '^([2-9]|1[0-9]|20)$' || fail "débit : 2 à 20 Mb/s"
++		set_stream "$fps" $((mbps * 1000000))
++		;;
++	stream-default)
++		set_stream "$DEFAULT_FPS" "$DEFAULT_BPS"
++		;;
++	reboot)
++		later "reboot"
++		ok "Redémarrage…"
++		;;
++	upgrade-check)
++		check_image
++		reply "{\"ok\":true,\"kernel\":$K_LEN,\"rootfs\":$R_LEN,\"md5\":\"$(md5sum <"$UPLOAD" | cut -c1-32)\"}"
++		;;
++	upgrade-apply)
++		upgrade_apply
++		;;
++	*)
++		fail "unknown action"
++		;;
++esac
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/post-build.sh b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/post-build.sh
+new file mode 100755
+index 0000000..009eb0e
+--- /dev/null
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/post-build.sh
+@@ -0,0 +1,38 @@
++#!/bin/sh
++# Showmo WinEye: replace the stock web UI with the two-page UI from this
++# profile's overlay (index.html = live view, config.html = settings).
++# Called by scripts/rootfs_script.sh with the target directory, after the
++# overlays are copied. Everything under /var/www that is not listed below
++# is removed; the session/login CGI of thingino-webui and raptor's MJPEG
++# proxy are kept because the new pages use them.
++set -e
++
++WWW="$1/var/www"
++[ -d "$WWW" ] || exit 0
++
++KEEP="
++index.html
++config.html
++login.html
++a/showmo.css
++a/showmo.js
++x/showmo.cgi
++x/auth.sh
++x/session.sh
++x/login.cgi
++x/logout.cgi
++x/session-status.cgi
++x/ch0.mjpg
++"
++
++cd "$WWW"
++find . -type f -o -type l | sed 's#^\./##' | while read -r f; do
++	case "$f" in onvif/*) continue ;; esac
++	printf '%s\n' "$KEEP" | grep -qxF "$f" || rm -f "$f"
++done
++find . -depth -type d -empty -delete
++
++for f in $KEEP; do
++	[ -e "$f" ] || { echo "showmo post-build: missing /var/www/$f" >&2; exit 1; }
++done
++chmod 0755 x/*.cgi x/ch0.mjpg
+-- 
+2.43.0
+

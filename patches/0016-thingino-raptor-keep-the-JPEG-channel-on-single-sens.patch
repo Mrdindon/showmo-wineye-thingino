@@ -1,0 +1,45 @@
+From 8dd9bc89a0ef8b112091dd8015d94638b38cc6a6 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 20:51:53 +0000
+Subject: [PATCH 16/20] thingino-raptor: keep the JPEG channel on single-sensor
+ IVDC streams
+
+rvd skipped JPEG for every IVDC stream because of a T23 dual-sensor SDK
+limitation. On a single-sensor T32 the channel works and costs nothing
+measurable on the main stream; without it there is no snapshot or MJPEG.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ ...p-JPEG-channel-on-single-sensor-IVDC.patch | 20 +++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+ create mode 100644 package/thingino-raptor/0001-rvd-keep-JPEG-channel-on-single-sensor-IVDC.patch
+
+diff --git a/package/thingino-raptor/0001-rvd-keep-JPEG-channel-on-single-sensor-IVDC.patch b/package/thingino-raptor/0001-rvd-keep-JPEG-channel-on-single-sensor-IVDC.patch
+new file mode 100644
+index 0000000..3d39945
+--- /dev/null
++++ b/package/thingino-raptor/0001-rvd-keep-JPEG-channel-on-single-sensor-IVDC.patch
+@@ -0,0 +1,20 @@
++From: Claude <noreply@anthropic.com>
++Subject: [PATCH] rvd: keep the JPEG snapshot channel on single-sensor IVDC streams
++
++The skip was added for T23 dual-sensor boards, where the SDK rejects a
++second IVDC channel in the same group. On a single-sensor T32 (Showmo
++WinEye, 2560x1440 IVDC main stream) the JPEG channel registers fine and
++the main stream keeps 25 fps while a viewer pulls MJPEG; without it the
++camera has no snapshot/MJPEG at all.
++---
++--- a/rvd/rvd_pipeline.c	2026-10-23 20:51:03.667423258 +0000
+++++ b/rvd/rvd_pipeline.c	2026-10-23 20:51:03.668423326 +0000
++@@ -1148,7 +1148,7 @@
++ 			/* IVDC streams: JPEG+IVDC registration fails on T23 dual-sensor
++ 			 * (SDK rejects second IVDC channel in same group). Skip JPEG
++ 			 * but keep index for consistent ring naming. */
++-			if (st->streams[v].enc_cfg.ivdc) {
+++			if (st->streams[v].enc_cfg.ivdc && st->sensor_count > 1) {
++ 				st->jpeg_count++;
++ 				continue;
++ 			}
+-- 
+2.43.0
+

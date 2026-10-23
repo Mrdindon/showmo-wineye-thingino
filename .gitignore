@@ -1,0 +1,8 @@
+# Camera backups made by install.py (vendor flash dump, IQ files, MAC): keep
+# them, but never commit them -- they contain vendor binaries and per-camera
+# secrets (cloud device keys in the vendor config partition).
+backup-*/
+# Images are published as release assets, not committed.
+*.bin
+thingino-firmware/
+__pycache__/

@@ -1,0 +1,29 @@
+From 1c44b529cf0008dfdffe3234ddf44940b95371a9 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 11:56:24 +0000
+Subject: [PATCH 07/20] showmo: baseline = no OSD, RTSP tcp_sndbuf 1M, IR-cut
+ day mode (as validated with Blue Iris)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../showmo_prj007_t32nq_gc8602_aic8800d80_defconfig        | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+index 11912ce..58c36b2 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+@@ -39,3 +39,10 @@ BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_RC_MODE="cbr"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_PROFILE="2"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM1_ENABLED_FALSE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_WEBRTC_ENABLED_FALSE=y
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_OSD_ENABLED_FALSE=y
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_VISIBLE_FALSE=y
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_UPTIME_VISIBLE_FALSE=y
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_CAMERA_VISIBLE_FALSE=y
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_LOGO_VISIBLE_FALSE=y
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_RTSP_TCP_SNDBUF="1048576"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_IRCUT_MODE="day"
+-- 
+2.43.0
+

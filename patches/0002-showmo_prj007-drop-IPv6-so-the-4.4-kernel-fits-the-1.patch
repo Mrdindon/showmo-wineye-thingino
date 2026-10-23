@@ -1,0 +1,27 @@
+From e707d93ed90060834a4d006efd90e90f950002c3 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Wed, 21 Oct 2026 22:18:42 +0000
+Subject: [PATCH 02/20] showmo_prj007: drop IPv6 so the 4.4 kernel fits the
+ 1600K partition
+
+With KOPT_IPV6 the uImage is 1678857 bytes and its tail is overwritten
+by the rootfs at 0x200000; without it, 1559200 bytes.
+---
+ .../showmo_prj007_t32nq_gc8602_aic8800d80_defconfig              | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+index e174957..8733e53 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+@@ -14,6 +14,7 @@ BR2_PACKAGE_THINGINO_KOPT_MMC0=y
+ BR2_PACKAGE_THINGINO_KOPT_MMC0_PB_4BIT=y
+ BR2_PACKAGE_THINGINO_KOPT_DWC2=y
+ BR2_PACKAGE_THINGINO_KOPT_DWC2_WIFI_ONLY=y
++BR2_PACKAGE_THINGINO_KOPT_IPV6=n
+ BR2_PACKAGE_THINGINO_UBOOT_FLASH_CONTROLLER_JZ_SFC=n
+ BR2_PACKAGE_THINGINO_UBOOT_FLASH_CONTROLLER_SFC0_NOR=y
+ BR2_PACKAGE_WIFI=y
+-- 
+2.43.0
+

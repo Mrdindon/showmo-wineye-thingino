@@ -1,0 +1,23 @@
+From 1f6def3da2eb62ca4fa49216045170eef6721f66 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 14:40:46 +0000
+Subject: [PATCH 09/20] showmo: keep IR-cut in auto mode (as validated on site)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../showmo_prj007_t32nq_gc8602_aic8800d80_defconfig              | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+index 2547e6f..c22eace 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+@@ -45,5 +45,4 @@ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_UPTIME_VISIBLE_FALSE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_CAMERA_VISIBLE_FALSE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_LOGO_VISIBLE_FALSE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_RTSP_TCP_SNDBUF="1048576"
+-BR2_PACKAGE_THINGINO_RAPTOR_CONF_IRCUT_MODE="day"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_SENSOR_ANTIFLICKER="0"
+-- 
+2.43.0
+

@@ -1,0 +1,34 @@
+From 7e18def1b84aa7b7d2f4458a807944b965478a40 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 00:39:45 +0000
+Subject: [PATCH 04/20] showmo_prj007: sensor on MCLK0, 1080p main stream,
+ Wi-Fi power save off
+
+GC8602 does not answer on I2C with the default MCLK1. 4K main stream
+does not fit the 34 MB rmem without IVDC. With power save on, the
+AIC8800D81 never receives broadcast frames, so ARP from other hosts fails.
+---
+ .../showmo_prj007_t32nq_gc8602_aic8800d80_defconfig           | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+index 8733e53..8666a75 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+@@ -21,9 +21,13 @@ BR2_PACKAGE_WIFI=y
+ BR2_PACKAGE_WIFI_AIC8800=y
+ BR2_PACKAGE_WIFI_AIC8800_USB=y
+ BR2_PACKAGE_WIFI_AIC8800_USB_8800D80=y
++BR2_PACKAGE_WIFI_AIC8800_MODULE_OPTS="ps_on=0"
+ BR2_SENSOR_1_NAME="gc8602"
+ BR2_THINGINO_AUDIO=y
+ BR2_THINGINO_RMEM_MB=34
+ BR2_THINGINO_SDCARD=y
+ FLASH_SIZE_MB=16
+ KERNEL_VERSION_4=y
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_SENSOR_MCLK="0"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_WIDTH="1920"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_HEIGHT="1080"
+-- 
+2.43.0
+

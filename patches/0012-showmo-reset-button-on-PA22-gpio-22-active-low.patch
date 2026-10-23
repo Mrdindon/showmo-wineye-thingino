@@ -1,0 +1,38 @@
+From 5b62feaa6d4281123ced734c12cf8cc3895b956e Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 19:39:59 +0000
+Subject: [PATCH 12/20] showmo: reset button on PA22 (gpio 22, active low)
+
+Found by polling the GPIO pin registers while pressing the button.
+Same pin the vendor firmware exports as an input. thingino-button:
+short press tells the IP, 5 s resets Wi-Fi, 20 s factory reset.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../showmo_prj007_t32nq_gc8602_aic8800d80_defconfig              | 1 +
+ .../showmo_prj007_t32nq_gc8602_aic8800d80/thingino.json          | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+index 030b948..35d23fe 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+@@ -50,3 +50,4 @@ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_ISP_OSD_TRUE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_VISIBLE_TRUE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_MAX_CHARS="20"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_FONT_SIZE="64"
++BR2_THINGINO_BUTTON=y
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/thingino.json b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/thingino.json
+index 503114b..8e9feb7 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/thingino.json
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/thingino.json
+@@ -1,5 +1,6 @@
+ {
+   "gpio": {
++    "button_reset": 22,
+     "wlan": 57
+   }
+ }
+-- 
+2.43.0
+

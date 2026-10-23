@@ -1,0 +1,53 @@
+From 083a846ec0812056e0d3e0d284cbb47e49f4ebd3 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 19:14:52 +0000
+Subject: [PATCH 11/20] showmo: 2560x1440 main stream, ISP OSD timestamp,
+ vendor IVDC params
+
+- 4K IVDC at 25 fps drops 1-2 frames after every I-frame (encoder
+  falls behind the 1080-line IVDC buffer): visible stutter each
+  second in Blue Iris. 2560x1440 (ISP scaler, still IVDC) keeps a
+  steady 25 fps.
+- Timestamp drawn by the ISP OSD (isp_osd = true): the default IPU
+  OSD hangs the SoC with IVDC (watchdog reset loop). 64 px, top left.
+- ISP params as in the vendor insmod_av.sh: ivdc_mem_line=1080 only
+  (no ivdc_threshold_line).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../showmo_prj007_t32nq_gc8602_aic8800d80_defconfig    | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+index c22eace..030b948 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+@@ -30,7 +30,7 @@ KERNEL_VERSION_4=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_SENSOR_MCLK="0"
+ BR2_ISP_CLKV_600MHZ=y
+ BR2_ISP_DIRECT_MODE_1=y
+-BR2_ISP_PARAMS="ivdc_mem_line=1080 ivdc_threshold_line=810"
++BR2_ISP_PARAMS="ivdc_mem_line=1080"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_IVDC_TRUE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_FPS="25"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_GOP="25"
+@@ -39,10 +39,14 @@ BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_RC_MODE="cbr"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_PROFILE="2"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM1_ENABLED_FALSE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_WEBRTC_ENABLED_FALSE=y
+-BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_OSD_ENABLED_FALSE=y
+-BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_VISIBLE_FALSE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_UPTIME_VISIBLE_FALSE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_CAMERA_VISIBLE_FALSE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_LOGO_VISIBLE_FALSE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_RTSP_TCP_SNDBUF="1048576"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_SENSOR_ANTIFLICKER="0"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_WIDTH="2560"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_HEIGHT="1440"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_ISP_OSD_TRUE=y
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_VISIBLE_TRUE=y
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_MAX_CHARS="20"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_FONT_SIZE="64"
+-- 
+2.43.0
+

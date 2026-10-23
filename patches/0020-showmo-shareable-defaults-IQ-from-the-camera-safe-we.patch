@@ -1,0 +1,200 @@
+From ab60a4b15698acd08ff4a8e9a992ba63281c9cce Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 21:21:38 +0000
+Subject: [PATCH 20/20] showmo: shareable defaults, IQ from the camera, safe
+ web upgrade
+
+- Default credentials root/password, RTSP and HTTP admin/password; the
+  web UI flags a default root password ("password" or "root").
+- No vendor IQ in the image (post-build.sh strips them): the installer
+  copies them from the camera's vendor rootfs into the overlay, and a web
+  upgrade copies them up to the overlay before flashing. The UI warns
+  when they are missing.
+- Web upgrade: write the kernel first, then the rootfs, and reboot with
+  SysRq: once the rootfs is replaced under the running system no new
+  program can be started (reboot(8) failed with an I/O error).
+- Video credentials set from the UI apply to RTSP and to the HTTP
+  snapshot/MJPEG server.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../overlay/var/www/config.html               |  4 +-
+ .../overlay/var/www/x/showmo.cgi              | 46 +++++++++++++++----
+ .../post-build.sh                             |  5 ++
+ ...o_prj007_t32nq_gc8602_aic8800d80_defconfig |  5 ++
+ 4 files changed, 51 insertions(+), 9 deletions(-)
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
+index 902d0cf..44b599d 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
+@@ -8,6 +8,7 @@
+ </head>
+ <body>
+ <div id="defpw" class="banner">Mot de passe root par défaut : changez-le ci-dessous (section Compte root).</div>
++<div id="noiq" class="banner">Calibration du capteur (fichiers IQ) absente : l'image vidéo est incorrecte. Relancer l'étape « IQ » du script d'installation.</div>
+ <header>
+ 	<strong id="name">Caméra</strong>
+ 	<a href="index.html">Direct</a>
+@@ -47,7 +48,7 @@
+ 	</div>
+ 
+ 	<div class="card">
+-		<h2>Identifiants RTSP</h2>
++		<h2>Identifiants vidéo (RTSP, aperçu)</h2>
+ 		<label for="ruser">Utilisateur</label>
+ 		<input id="ruser" autocomplete="off">
+ 		<label for="rpass">Nouveau mot de passe</label>
+@@ -101,6 +102,7 @@ async function load() {
+ 	const d = st.device;
+ 	$("name").textContent = d.hostname;
+ 	$("defpw").style.display = st.default_password ? "block" : "none";
++	$("noiq").style.display = st.iq ? "none" : "block";
+ 	const [used, total] = (d.emmc || "0 0").split(" ").map(Number);
+ 	const rows = [
+ 		["Adresse IP", d.ip],
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi
+index 078f069..cbff086 100755
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi
+@@ -24,6 +24,7 @@ require_auth
+ 
+ CONF=/etc/raptor.conf
+ TZ_DB=/usr/share/tz.json
++IQ_DIR=/usr/share/sensor
+ UPLOAD=/mnt/mmcblk0p1/showmo-upload.bin
+ UPLOG=/tmp/showmo-upgrade.log
+ DEFAULT_FPS=25
+@@ -105,6 +106,17 @@ status() {
+ 	build=$(sed -n 's/^BUILD_ID="\(.*\)"$/\1/p' /etc/os-release)
+ 	emmc=$(df -k /mnt/mmcblk0p1 2>/dev/null | awk 'NR == 2 { print $3 " " $2 }')
+ 	tz=$(cat /etc/timezone 2>/dev/null)
++	# Default root password of the image ("password") or of thingino ("root")?
++	defpw=false
++	hash=$(sed -n 's/^root:\([^:]*\):.*/\1/p' /etc/shadow)
++	salt=$(printf '%s' "$hash" | cut -d'$' -f3)
++	for p in password root; do
++		[ "$(mkpasswd -m sha512 "$p" "$salt" 2>/dev/null)" = "$hash" ] && defpw=true
++	done
++	# Sensor calibration (IQ) is not in the image: copied from the vendor
++	# firmware at install time into the overlay.
++	iq=false
++	[ -s "$IQ_DIR/gc8602-PRJ007-day.bin" ] && iq=true
+ 	keys=0
+ 	[ -f /root/.ssh/authorized_keys ] && keys=$(grep -cE '^(ssh-|ecdsa-)' /root/.ssh/authorized_keys)
+ 	reply "{\"ok\":true,
+@@ -112,7 +124,7 @@ status() {
+ \"rtsp\":{\"user\":\"$(esc "$(cget rtsp username)")\",\"port\":\"$(cget rtsp port)\",\"endpoint\":\"$(cget rtsp endpoint_main)\"},
+ \"stream\":{\"width\":\"$(cget stream0 width)\",\"height\":\"$(cget stream0 height)\",\"fps\":\"$(cget stream0 fps)\",\"gop\":\"$(cget stream0 gop)\",\"bitrate\":\"$(cget stream0 bitrate)\",\"rc_mode\":\"$(cget stream0 rc_mode)\"},
+ \"osd\":{\"visible\":\"$(cget osd.timestamp visible)\",\"size\":\"$(cget osd.timestamp font_size)\",\"sizes\":\"$OSD_SIZES\"},
+-\"tz\":\"$(esc "$tz")\",\"ssh_keys\":$keys,\"default_password\":${SESSION_IS_DEFAULT_PASSWORD:-false}}"
++\"tz\":\"$(esc "$tz")\",\"ssh_keys\":$keys,\"default_password\":$defpw,\"iq\":$iq}"
+ }
+ 
+ set_stream() {
+@@ -162,8 +174,20 @@ check_image() {
+ 	[ "$R_LEN" -le "$mtd4" ] || fail "rootfs trop grand pour cette caméra ($R_LEN > $mtd4) : flash complet nécessaire"
+ }
+ 
++# The IQ files live in the overlay (copy-up of whatever /usr/share/sensor
++# shows now), so a rootfs without them keeps the camera calibrated.
++keep_iq() {
++	for f in "$IQ_DIR"/gc8602-PRJ007-*.bin; do
++		[ -s "$f" ] || continue
++		b=$(basename "$f")
++		cat "$f" >"/tmp/$b" && cat "/tmp/$b" >"$f" && rm -f "/tmp/$b" || fail "copie de $b impossible"
++	done
++	sync
++}
++
+ upgrade_apply() {
+ 	check_image
++	keep_iq
+ 	dir=$(dirname "$UPLOAD")
+ 	cat >/tmp/showmo-upgrade.sh <<EOF
+ #!/bin/sh
+@@ -171,8 +195,11 @@ exec >$UPLOG 2>&1
+ echo "start \$(date)"
+ dd if=$UPLOAD of=$dir/showmo-kernel.bin bs=32768 skip=$((0x70000 / 32768)) count=$((K_LEN / 32768)) || { echo FAIL extract kernel; exit 1; }
+ dd if=$UPLOAD of=$dir/showmo-rootfs.bin bs=32768 skip=$((0x200000 / 32768)) count=$((R_LEN / 32768)) || { echo FAIL extract rootfs; exit 1; }
++rm -f $UPLOAD
+ sync
+-for p in rootfs:mtd4 kernel:mtd3; do
++# Kernel first: once the rootfs is rewritten under the running system, no new
++# program can be started from it (only already-cached ones such as flashcp).
++for p in kernel:mtd3 rootfs:mtd4; do
+ 	f=$dir/showmo-\${p%%:*}.bin
+ 	m=/dev/\${p#*:}
+ 	echo "write \$f -> \$m"
+@@ -182,11 +209,10 @@ for p in rootfs:mtd4 kernel:mtd3; do
+ 	[ "\$want" = "\$got" ] || { echo "FAIL verify \$m \$want \$got"; exit 1; }
+ 	echo "OK \$m \$want"
+ done
+-rm -f $UPLOAD $dir/showmo-kernel.bin $dir/showmo-rootfs.bin
+-sync
+ echo "DONE, reboot"
+-sleep 2
+-reboot
++# reboot(8) would have to be loaded from the replaced rootfs (I/O error):
++# use the shell builtin echo and SysRq instead (the flash writes are done).
++echo b >/proc/sysrq-trigger
+ EOF
+ 	chmod +x /tmp/showmo-upgrade.sh
+ 	echo "queued $(date)" >"$UPLOG"
+@@ -225,6 +251,7 @@ fi
+ 
+ if [ "$action" = "upload" ]; then
+ 	mountpoint -q /mnt/mmcblk0p1 || fail "eMMC non montée : impossible de stocker l'image"
++	rm -f /mnt/mmcblk0p1/showmo-kernel.bin /mnt/mmcblk0p1/showmo-rootfs.bin
+ 	len=${CONTENT_LENGTH:-0}
+ 	[ "$len" -eq 16777216 ] || fail "il faut l'image complète de 16 Mo ($len octets reçus)"
+ 	head -c "$len" >"$UPLOAD" || fail "écriture impossible"
+@@ -263,11 +290,14 @@ case "$action" in
+ 		plain "$pass" || fail "mot de passe : caractères imprimables sans espace ni #"
+ 		case "$pass" in *' '*) fail "mot de passe : pas d'espace" ;; esac
+ 		[ ${#pass} -ge 4 ] || fail "mot de passe trop court"
++		# Same credentials for rhd (MJPEG/snapshot on port 8443).
+ 		cset rtsp username "$user"
+ 		cset rtsp password "$pass"
++		cset http username "$user"
++		cset http password "$pass"
+ 		csave
+-		later "raptorctl rsd restart"
+-		ok "Identifiants RTSP changés : reconnecter Blue Iris avec les nouveaux"
++		later "raptorctl rsd restart; raptorctl rhd restart"
++		ok "Identifiants vidéo changés (RTSP et HTTP) : reconnecter Blue Iris avec les nouveaux"
+ 		;;
+ 	wifi)
+ 		ssid=$(field ssid)
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/post-build.sh b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/post-build.sh
+index 009eb0e..285d24e 100755
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/post-build.sh
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/post-build.sh
+@@ -10,6 +10,11 @@ set -e
+ WWW="$1/var/www"
+ [ -d "$WWW" ] || exit 0
+ 
++# The sensor calibration (IQ) comes from the vendor firmware: it is never
++# shipped in the image. The installer copies it from the camera's own vendor
++# rootfs into the overlay (/usr/share/sensor), where upgrades keep it.
++rm -f "$1"/usr/share/sensor/gc8602-PRJ007-*.bin
++
+ KEEP="
+ index.html
+ config.html
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+index 5472087..3998272 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+@@ -58,3 +58,8 @@ BR2_PACKAGE_THINGINO_VPN_NONE=y
+ # BR2_PACKAGE_THINGINO_RAPTOR_WEBRTC is not set
+ # BR2_PACKAGE_THINGINO_RAPTOR_WEBTORRENT is not set
+ # BR2_PACKAGE_THINGINO_RAPTOR_RSP is not set
++BR2_TARGET_GENERIC_ROOT_PASSWD="password"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_RTSP_USERNAME="admin"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_RTSP_PASSWORD="password"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_HTTP_USERNAME="admin"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_HTTP_PASSWORD="password"
+-- 
+2.43.0
+

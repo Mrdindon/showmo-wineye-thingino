@@ -1,0 +1,36 @@
+From c083bd6a50dbba4ae2440a7c328d3db3239b560e Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 10:56:58 +0000
+Subject: [PATCH 06/20] showmo: gratuitous ARP keepalive (TP-Link APs forget
+ the client IP on reassociation)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../overlay/etc/init.d/S99garp                    | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+ create mode 100755 configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/etc/init.d/S99garp
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/etc/init.d/S99garp b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/etc/init.d/S99garp
+new file mode 100755
+index 0000000..41be8fb
+--- /dev/null
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/etc/init.d/S99garp
+@@ -0,0 +1,15 @@
++#!/bin/sh
++# Gratuitous ARP keepalive: some APs (TP-Link) only relay ARP requests to clients whose IP they
++# have learned, and forget it on every (re)association -> camera unreachable from new hosts.
++case "$1" in
++start)
++    (while true; do
++        ip=$(ip -4 addr show wlan0 2>/dev/null | sed -n 's/.*inet \([0-9.]*\).*/\1/p')
++        [ -n "$ip" ] && arping -U -c 1 -I wlan0 "$ip" >/dev/null 2>&1
++        sleep 30
++    done) </dev/null >/dev/null 2>&1 &
++    ;;
++stop)
++    pkill -f "S99garp start"
++    ;;
++esac
+-- 
+2.43.0
+

@@ -1,0 +1,33 @@
+From 85e9950f46ac0cfa1b61ca0bf54934b3ef499ce0 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 20:51:53 +0000
+Subject: [PATCH 15/20] rootfs_script: run <camera>/post-build.sh when the
+ profile has one
+
+Lets a camera profile adjust the final target tree (after overlays),
+e.g. drop parts of the stock web UI it replaces.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ scripts/rootfs_script.sh | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/scripts/rootfs_script.sh b/scripts/rootfs_script.sh
+index e833ba5..814b4c0 100755
+--- a/scripts/rootfs_script.sh
++++ b/scripts/rootfs_script.sh
+@@ -190,3 +190,11 @@ fi
+ # Thingino disables CONFIG_LONG_OPTS; --long-options silently fail at runtime.
+ # ---------------------------------------------------------------------------
+ $BR2_EXTERNAL/scripts/check-busybox-lopts.sh "${TARGET_DIR}" 1
++
++# ---------------------------------------------------------------------------
++# Camera-specific post-build step: <camera profile>/post-build.sh <target>
++# ---------------------------------------------------------------------------
++CAMERA_POST_BUILD="$BR2_EXTERNAL/${CAMERA_SUBDIR}/${CAMERA}/post-build.sh"
++if [ -x "$CAMERA_POST_BUILD" ]; then
++	"$CAMERA_POST_BUILD" "${TARGET_DIR}"
++fi
+-- 
+2.43.0
+

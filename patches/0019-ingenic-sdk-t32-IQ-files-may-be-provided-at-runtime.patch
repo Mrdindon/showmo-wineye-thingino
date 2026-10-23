@@ -1,0 +1,32 @@
+From b505bb73c8aa2f61dac515d946578ac15cdec967 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 21:21:38 +0000
+Subject: [PATCH 19/20] ingenic-sdk: t32 IQ files may be provided at runtime
+
+The PRJ007 IQ files of the T32 boards come from the vendor firmware.
+Warn instead of failing when they are absent from sensor-iq/t32/, so
+an image can be built and distributed without them and the files can
+be installed on the camera itself (/usr/share/sensor in the overlay).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ package/ingenic-sdk/ingenic-sdk.mk | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/package/ingenic-sdk/ingenic-sdk.mk b/package/ingenic-sdk/ingenic-sdk.mk
+index 1d40801..4201b64 100644
+--- a/package/ingenic-sdk/ingenic-sdk.mk
++++ b/package/ingenic-sdk/ingenic-sdk.mk
+@@ -174,8 +174,7 @@ define INSTALL_SENSOR_BIN
+ 				found=1; \
+ 			done; \
+ 			if [ $$found -eq 0 ]; then \
+-				echo "ERROR: no IQ bin for $(2) in sensor-iq/t32/ (want $(2)-PRJ007-day.bin)"; \
+-				exit 1; \
++				echo "WARNING: no IQ bin for $(2) in sensor-iq/t32/ (want $(2)-PRJ007-day.bin): it must be installed at runtime in /usr/share/sensor"; \
+ 			fi; \
+ 		else \
+ 			iqdir=$(@D)/sensor-iq/$(SOC_FAMILY); \
+-- 
+2.43.0
+

@@ -1,0 +1,50 @@
+From 0e5e3c4817356043f1c07da4f2f1d59eee8ae469 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 19:14:52 +0000
+Subject: [PATCH 10/20] thingino-raptor: add [osd.timestamp] font_size option
+
+Per-element font size for the timestamp. The global [osd] font_size
+also enlarges every other element region (privacy, uptime, camera),
+which overflows the OSD pool rvd allocates when isp_osd is used on T32
+(nothing is drawn). Sizing only the timestamp keeps the pool small.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ package/thingino-raptor/Config.in.conf          | 8 ++++++++
+ package/thingino-raptor/thingino-raptor-conf.mk | 1 +
+ 2 files changed, 9 insertions(+)
+
+diff --git a/package/thingino-raptor/Config.in.conf b/package/thingino-raptor/Config.in.conf
+index e8bc3a9..9558403 100644
+--- a/package/thingino-raptor/Config.in.conf
++++ b/package/thingino-raptor/Config.in.conf
+@@ -1296,6 +1296,14 @@ config BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_MAX_CHARS
+ 	string "max_chars (default 22)"
+ 	default ""
+ 
++config BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_FONT_SIZE
++	string "font_size (default 0 = global [osd] font_size)"
++	default ""
++	help
++	  Per-element font size. Unlike the global [osd] font_size it only
++	  enlarges the timestamp region, which keeps the OSD pool small
++	  (required with isp_osd on T32).
++
+ endmenu
+ 
+ menu "OSD uptime [osd.uptime]"
+diff --git a/package/thingino-raptor/thingino-raptor-conf.mk b/package/thingino-raptor/thingino-raptor-conf.mk
+index effe5c8..294aff4 100644
+--- a/package/thingino-raptor/thingino-raptor-conf.mk
++++ b/package/thingino-raptor/thingino-raptor-conf.mk
+@@ -251,6 +251,7 @@ define THINGINO_RAPTOR_PATCH_CONF
+ 	rset osd.timestamp template "$(call qstrip,$(BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_TEMPLATE))"; \
+ 	rset osd.timestamp position "$(call qstrip,$(BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_POSITION))"; \
+ 	rset osd.timestamp max_chars "$(call qstrip,$(BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_MAX_CHARS))"; \
++	rset osd.timestamp font_size "$(call qstrip,$(BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_FONT_SIZE))"; \
+ 	\
+ 	rset osd.uptime visible "$(call raptor_bval,OSD_UPTIME_VISIBLE)"; \
+ 	rset osd.uptime template "$(call qstrip,$(BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_UPTIME_TEMPLATE))"; \
+-- 
+2.43.0
+

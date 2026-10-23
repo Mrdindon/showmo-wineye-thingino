@@ -1,0 +1,55 @@
+From 3473c9a9f04d223820a2cb3b5465f8665f9fdcf5 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 21:03:08 +0000
+Subject: [PATCH 18/20] showmo: web UI firmware update survives the flash-busy
+ period
+
+While the SPI flash is written the camera cannot load programs, so the
+progress request hangs until the reboot. Show elapsed time instead and
+return to the login page once the camera answers again.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../overlay/var/www/config.html               | 25 +++++++++++--------
+ 1 file changed, 15 insertions(+), 10 deletions(-)
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
+index 00ff460..902d0cf 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
+@@ -196,17 +196,22 @@ $("fwapply").onclick = async (e) => {
+ 	e.target.disabled = $("fwgo").disabled = true;
+ 	const j = await post("upgrade-apply");
+ 	if (!j.ok) return;
++	// While the SPI flash is being written the camera cannot load programs, so
++	// the log request may hang until the reboot: show progress by elapsed time
++	// and go back to the login page once the camera answers again (~2 min).
++	const t0 = Date.now();
++	$("fwinfo").textContent = "Écriture du système et du noyau… ne pas couper l'alimentation.";
+ 	const poll = setInterval(async () => {
+-		const l = await getJSON("upgrade-log").catch(() => null);
+-		if (!l) return;
+-		$("fwinfo").textContent = l.log.split("|").filter(Boolean).pop() || "";
+-		if (/FAIL/.test(l.log)) { clearInterval(poll); toast("Échec : " + l.log, false); }
+-		if (/DONE/.test(l.log)) {
+-			clearInterval(poll);
+-			$("fwinfo").textContent = "Écrit et vérifié. Redémarrage… la page se rechargera.";
+-			setTimeout(() => location.reload(), 60000);
+-		}
+-	}, 2000);
++		const s = Math.round((Date.now() - t0) / 1000);
++		const r = await fetch(`${CGI}?a=upgrade-log`, { cache: "no-store", signal: AbortSignal.timeout(3000) }).catch(() => null);
++		if (r && r.status === 401 && s > 30) { clearInterval(poll); location.href = "login.html"; return; }
++		const l = r && r.ok ? await r.json().catch(() => null) : null;
++		if (l && /FAIL/.test(l.log)) { clearInterval(poll); toast("Échec : " + l.log, false); return; }
++		$("fwinfo").textContent = l && /DONE/.test(l.log)
++			? "Écrit et vérifié. Redémarrage…"
++			: `Écriture puis redémarrage en cours (${s} s)… ne pas couper l'alimentation.`;
++		if (s > 300) { clearInterval(poll); location.href = "login.html"; }
++	}, 3000);
+ };
+ 
+ requireLogin().then(load);
+-- 
+2.43.0
+

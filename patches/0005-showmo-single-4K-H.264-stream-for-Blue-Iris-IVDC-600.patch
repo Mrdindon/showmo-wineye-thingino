@@ -1,0 +1,43 @@
+From f95bb17a9c5f51fd2953d9de42229859f56d5425 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 10:45:24 +0000
+Subject: [PATCH 05/20] showmo: single 4K H.264 stream for Blue Iris (IVDC,
+ 600MHz, 25fps CBR 15Mbps, stream1/webrtc off)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ ...showmo_prj007_t32nq_gc8602_aic8800d80_defconfig | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+index 8666a75..11912ce 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+@@ -5,7 +5,6 @@ BR2_ISP_CLKA_400MHZ=y
+ BR2_ISP_CLKA_VPLL=y
+ BR2_ISP_CLKS_400MHZ=y
+ BR2_ISP_CLKS_VPLL=y
+-BR2_ISP_CLKV_400MHZ=y
+ BR2_ISP_CLKV_VPLL=y
+ BR2_ISP_CLK_225MHZ=y
+ BR2_ISP_CLK_MPLL=y
+@@ -29,5 +28,14 @@ BR2_THINGINO_SDCARD=y
+ FLASH_SIZE_MB=16
+ KERNEL_VERSION_4=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_SENSOR_MCLK="0"
+-BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_WIDTH="1920"
+-BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_HEIGHT="1080"
++BR2_ISP_CLKV_600MHZ=y
++BR2_ISP_DIRECT_MODE_1=y
++BR2_ISP_PARAMS="ivdc_mem_line=1080 ivdc_threshold_line=810"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_IVDC_TRUE=y
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_FPS="25"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_GOP="25"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_BITRATE="15000000"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_RC_MODE="cbr"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM0_PROFILE="2"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_STREAM1_ENABLED_FALSE=y
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_WEBRTC_ENABLED_FALSE=y
+-- 
+2.43.0
+

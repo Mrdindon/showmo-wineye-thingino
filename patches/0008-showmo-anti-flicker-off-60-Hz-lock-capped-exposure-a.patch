@@ -1,0 +1,23 @@
+From 5def9a22a4583f7b7bec6188ecb26d42eca40271 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 13:59:41 +0000
+Subject: [PATCH 08/20] showmo: anti-flicker off (60 Hz lock capped exposure at
+ 1/120 s, outdoor image blown out at F1.0)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../showmo_prj007_t32nq_gc8602_aic8800d80_defconfig              | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+index 58c36b2..2547e6f 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+@@ -46,3 +46,4 @@ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_CAMERA_VISIBLE_FALSE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_LOGO_VISIBLE_FALSE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_RTSP_TCP_SNDBUF="1048576"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_IRCUT_MODE="day"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_SENSOR_ANTIFLICKER="0"
+-- 
+2.43.0
+

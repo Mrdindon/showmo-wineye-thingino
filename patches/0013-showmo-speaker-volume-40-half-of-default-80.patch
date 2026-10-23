@@ -1,0 +1,22 @@
+From 20f9a736e2c84f33de74dc27c52c5db00347bf4a Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 19:53:23 +0000
+Subject: [PATCH 13/20] showmo: speaker volume 40 (half of default 80)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../showmo_prj007_t32nq_gc8602_aic8800d80_defconfig              | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+index 35d23fe..667c7d3 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+@@ -51,3 +51,4 @@ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_VISIBLE_TRUE=y
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_MAX_CHARS="20"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_OSD_TIMESTAMP_FONT_SIZE="64"
+ BR2_THINGINO_BUTTON=y
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_AUDIO_AO_VOLUME="40"
+-- 
+2.43.0
+

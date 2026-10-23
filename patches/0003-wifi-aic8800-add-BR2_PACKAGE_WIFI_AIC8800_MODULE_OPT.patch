@@ -1,0 +1,45 @@
+From 4170b0ebbf8eed7e3e70ec232a7d6d861732a6da Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 00:39:45 +0000
+Subject: [PATCH 03/20] wifi-aic8800: add BR2_PACKAGE_WIFI_AIC8800_MODULE_OPTS
+
+Lets a board pass extra aic8800_fdrv parameters, e.g. ps_on=0 where the
+chip stops receiving broadcast/multicast frames in power save.
+---
+ package/wifi-aic8800/Config.in       | 8 ++++++++
+ package/wifi-aic8800/wifi-aic8800.mk | 2 +-
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/package/wifi-aic8800/Config.in b/package/wifi-aic8800/Config.in
+index 7d14804..aedc783 100644
+--- a/package/wifi-aic8800/Config.in
++++ b/package/wifi-aic8800/Config.in
+@@ -91,4 +91,12 @@ if BR2_PACKAGE_WIFI_AIC8800
+ 				AIC8800D80X2 dual radio model
+ 		endchoice
+ 	endif
++	config BR2_PACKAGE_WIFI_AIC8800_MODULE_OPTS
++		string "Extra module parameters"
++		default ""
++		help
++		  Extra parameters passed to aic8800_fdrv when it is loaded,
++		  e.g. "ps_on=0" for boards where the chip misses broadcast
++		  and multicast frames (ARP requests) while in power save.
++
+ endif
+diff --git a/package/wifi-aic8800/wifi-aic8800.mk b/package/wifi-aic8800/wifi-aic8800.mk
+index 2eb2e8e..bb5fb2a 100644
+--- a/package/wifi-aic8800/wifi-aic8800.mk
++++ b/package/wifi-aic8800/wifi-aic8800.mk
+@@ -6,7 +6,7 @@ WIFI_AIC8800_VERSION = a870f7f15170a5899bf0b98769896fd1a7d4bf1e
+ WIFI_AIC8800_LICENSE = GPL-2.0
+ 
+ AIC8800_MODULE_NAME = aic8800_fdrv
+-AIC8800_MODULE_OPTS =
++AIC8800_MODULE_OPTS = $(call qstrip,$(BR2_PACKAGE_WIFI_AIC8800_MODULE_OPTS))
+ 
+ WIFI_AIC8800_MODULE_MAKE_OPTS = \
+ 	CONFIG_USE_WIRELESS_EXT=n \
+-- 
+2.43.0
+
