@@ -1,7 +1,7 @@
 From 85e9950f46ac0cfa1b61ca0bf54934b3ef499ce0 Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 20:51:53 +0000
-Subject: [PATCH 15/22] rootfs_script: run <camera>/post-build.sh when the
+Subject: [PATCH 15/24] rootfs_script: run <camera>/post-build.sh when the
  profile has one
 
 Lets a camera profile adjust the final target tree (after overlays),

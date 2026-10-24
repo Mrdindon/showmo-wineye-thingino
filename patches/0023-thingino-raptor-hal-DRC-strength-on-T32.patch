@@ -1,0 +1,76 @@
+From 9da5ff782db81acfc73d8cf70ee27cdafe3681ce Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Sat, 24 Oct 2026 02:22:01 +0000
+Subject: [PATCH 23/24] thingino-raptor-hal: DRC strength on T32
+
+T32 has no SetDRC_Strength: set the DRC (local tone mapping) as a ratio
+of the IQ tuning with IMP_ISP_Tuning_SetModule_Ratio(IMP_ISP_MODULE_DRC),
+128 = as tuned, behind set/get-drc and [image] drc_strength.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../0002-isp-DRC-strength-on-T32.patch        | 52 +++++++++++++++++++
+ 1 file changed, 52 insertions(+)
+ create mode 100644 package/thingino-raptor-hal/0002-isp-DRC-strength-on-T32.patch
+
+diff --git a/package/thingino-raptor-hal/0002-isp-DRC-strength-on-T32.patch b/package/thingino-raptor-hal/0002-isp-DRC-strength-on-T32.patch
+new file mode 100644
+index 0000000..054e2e2
+--- /dev/null
++++ b/package/thingino-raptor-hal/0002-isp-DRC-strength-on-T32.patch
+@@ -0,0 +1,52 @@
++From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
++Subject: [PATCH] isp: DRC strength on T32
++
++T32 has no SetDRC_Strength; the DRC (local tone mapping) strength is a
++ratio of the IQ tuning set with IMP_ISP_Tuning_SetModule_Ratio
++(IMP_ISP_MODULE_DRC, 128 = as tuned). Map set/get-drc and [image]
++drc_strength to it. Combined with the highlight compensation it keeps
++the shadows of a night scene while a floodlight halo shrinks.
++---
++--- a/src/hal_caps.c	2026-10-24 02:21:36.960761235 +0000
+++++ b/src/hal_caps.c	2026-10-24 02:21:36.961761304 +0000
++@@ -504,7 +504,7 @@
++     .has_t23_multicam_api = false,
++     .has_defog = false,
++     .has_dpc = false,
++-    .has_drc = false, /* via SetModuleControl only */
+++    .has_drc = true, /* SetModule_Ratio(IMP_ISP_MODULE_DRC) */
++     .has_face_ae = true,
++     .has_bcsh_hue = true,
++     .has_sinter = false, /* via SetModuleControl only */
++--- a/src/hal_isp.c	2026-10-24 02:21:36.959761165 +0000
+++++ b/src/hal_isp.c	2026-10-24 02:21:36.961761304 +0000
++@@ -649,6 +649,15 @@
++ 
++ #if defined(PLATFORM_T21) || defined(PLATFORM_T23) || defined(PLATFORM_T31)
++     return IMP_ISP_Tuning_SetDRC_Strength((unsigned int)v);
+++#elif defined(PLATFORM_T32)
+++    /* T32: DRC strength as a ratio of the IQ tuning (128 = as tuned) */
+++    IMPISPModuleRatioAttr r;
+++    int ret = IMP_ISP_Tuning_GetModule_Ratio(IMPVI_MAIN, &r);
+++    if (ret != 0)
+++        return ret;
+++    r.ratio_attr[IMP_ISP_MODULE_DRC].en = IMPISP_TUNING_OPS_MODE_ENABLE;
+++    r.ratio_attr[IMP_ISP_MODULE_DRC].ratio = v;
+++    return IMP_ISP_Tuning_SetModule_Ratio(IMPVI_MAIN, &r);
++ #else
++     (void)v;
++     return RSS_ERR_NOTSUP;
++@@ -1281,6 +1290,13 @@
++         return ret;
++     *val = (uint8_t)ratio;
++     return RSS_OK;
+++#elif defined(PLATFORM_T32)
+++    IMPISPModuleRatioAttr r;
+++    int ret = IMP_ISP_Tuning_GetModule_Ratio(IMPVI_MAIN, &r);
+++    if (ret != 0)
+++        return ret;
+++    *val = r.ratio_attr[IMP_ISP_MODULE_DRC].en == IMPISP_TUNING_OPS_MODE_ENABLE ? r.ratio_attr[IMP_ISP_MODULE_DRC].ratio : 128;
+++    return RSS_OK;
++ #else
++     (void)val;
++     return RSS_ERR_NOTSUP;
+-- 
+2.43.0
+

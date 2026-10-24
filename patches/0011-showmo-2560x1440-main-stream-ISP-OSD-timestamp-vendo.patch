@@ -1,7 +1,7 @@
 From 083a846ec0812056e0d3e0d284cbb47e49f4ebd3 Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 19:14:52 +0000
-Subject: [PATCH 11/22] showmo: 2560x1440 main stream, ISP OSD timestamp,
+Subject: [PATCH 11/24] showmo: 2560x1440 main stream, ISP OSD timestamp,
  vendor IVDC params
 
 - 4K IVDC at 25 fps drops 1-2 frames after every I-frame (encoder

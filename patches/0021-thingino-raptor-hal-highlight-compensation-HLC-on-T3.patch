@@ -1,7 +1,7 @@
 From 7718dcbdc641661579c35137c77159b2b3ef2d0d Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Sat, 24 Oct 2026 01:52:10 +0000
-Subject: [PATCH 21/22] thingino-raptor-hal: highlight compensation (HLC) on
+Subject: [PATCH 21/24] thingino-raptor-hal: highlight compensation (HLC) on
  T32
 
 T32 has no SetHiLightDepress but provides the AE highlight compensation

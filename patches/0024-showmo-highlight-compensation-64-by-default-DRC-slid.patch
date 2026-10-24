@@ -1,0 +1,124 @@
+From 3d394182b258d4467303b26ad2785d561108efc7 Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Sat, 24 Oct 2026 02:22:01 +0000
+Subject: [PATCH 24/24] showmo: highlight compensation 64 by default, DRC
+ slider
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Default [image] highlight_depress = 64 (floodlight halo reduced).
+- Web UI: "Récupération des ombres (DRC)" slider 64..255 (128 = factory)
+  next to the highlight compensation; both show the values applied by
+  rvd (raptorctl rvd get-isp), not only the saved ones.
+Tested on a camera at night: highlight 128 + DRC 160 shrinks the halo by
+about 20% while keeping the shadows as without compensation.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../overlay/var/www/config.html               | 11 +++++++++-
+ .../overlay/var/www/x/showmo.cgi              | 20 ++++++++++++++++++-
+ ...o_prj007_t32nq_gc8602_aic8800d80_defconfig |  1 +
+ 3 files changed, 30 insertions(+), 2 deletions(-)
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
+index de2aad1..10a87a6 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
+@@ -51,8 +51,12 @@
+ 		<h2>Fortes lumières</h2>
+ 		<label for="hlc">Atténuation (0 = désactivée, 128 = maximum) : <strong id="hlcval">0</strong></label>
+ 		<input id="hlc" type="range" min="0" max="128" step="8">
+-		<p class="hint">Réduit le halo d'un projecteur ou de phares dans le champ, en assombrissant un peu le reste de l'image. Appliqué en direct ; vérifier sur l'aperçu (Direct) ou dans Blue Iris. Valeur conseillée si besoin : 32 à 64.</p>
++		<p class="hint">Réduit le halo d'un projecteur ou de phares dans le champ, en assombrissant un peu le reste de l'image.</p>
+ 		<div class="row"><button id="hlcbtn">Appliquer</button><button id="hlcoff" class="alt">Désactiver</button></div>
++		<label for="drc">Récupération des ombres (DRC, 128 = réglage d'usine) : <strong id="drcval">128</strong></label>
++		<input id="drc" type="range" min="64" max="255" step="8">
++		<p class="hint">Éclaircit les zones sombres sans toucher aux zones claires. Combiné à l'atténuation : essayer atténuation 128 + DRC 160. Trop fort, il éclaircit aussi le halo. Appliqué en direct ; vérifier sur l'aperçu (Direct) ou dans Blue Iris.</p>
++		<div class="row"><button id="drcbtn">Appliquer</button><button id="drcdef" class="alt">Usine (128)</button></div>
+ 	</div>
+ 
+ 	<div class="card">
+@@ -136,6 +140,8 @@ async function load() {
+ 	$("osdsize").value = st.osd.size || "64";
+ 	$("hlc").value = st.image.hlc || 0;
+ 	$("hlcval").textContent = $("hlc").value;
++	$("drc").value = st.image.drc || 128;
++	$("drcval").textContent = $("drc").value;
+ 	$("ruser").value = st.rtsp.user;
+ 	$("ssid").value = d.ssid;
+ 	$("host").value = d.hostname;
+@@ -157,6 +163,9 @@ $("osd").onclick = (e) => busy(e.target, async () => {
+ $("hlc").oninput = () => ($("hlcval").textContent = $("hlc").value);
+ $("hlcbtn").onclick = (e) => busy(e.target, () => post("hlc", { value: $("hlc").value }));
+ $("hlcoff").onclick = (e) => busy(e.target, () => post("hlc", { value: 0 }).then(load));
++$("drc").oninput = () => ($("drcval").textContent = $("drc").value);
++$("drcbtn").onclick = (e) => busy(e.target, () => post("drc", { value: $("drc").value }));
++$("drcdef").onclick = (e) => busy(e.target, () => post("drc", { value: 128 }).then(load));
+ 
+ $("rtsp").onclick = (e) => busy(e.target, async () => {
+ 	if (!$("rpass").value) return toast("Entrez le nouveau mot de passe RTSP", false);
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi
+index 6186071..513d1b2 100755
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi
+@@ -13,6 +13,7 @@
+ #      tz        tz              time zone name from /usr/share/tz.json
+ #      osd       visible size    timestamp overlay
+ #      hlc       value           highlight compensation 0 (off) .. 128
++#      drc       value           dynamic range compression 0 .. 255 (128 = as tuned)
+ #      stream    fps mbps        main stream rate
+ #      stream-default            back to 25 fps / GOP 25 / CBR 15 Mb/s
+ #      reboot
+@@ -97,6 +98,13 @@ later() {
+ 	setsid sh -c "sleep 1; $1" </dev/null >/dev/null 2>&1 &
+ }
+ 
++# Value currently applied by rvd (raptorctl rvd get-isp), else the saved one.
++isp_live() {
++	v=$(raptorctl rvd get-isp 2>/dev/null | sed -n "s/.*\"$1\":\([0-9]*\).*/\1/p")
++	[ -n "$v" ] || v=$(cget image "$1")
++	printf '%s' "$v"
++}
++
+ status() {
+ 	ip=$(ip -4 -o addr show wlan0 2>/dev/null | awk '{ sub(/\/.*/, "", $4); print $4; exit }')
+ 	mac=$(cat /sys/class/net/wlan0/address 2>/dev/null)
+@@ -124,7 +132,7 @@ status() {
+ \"device\":{\"hostname\":\"$(esc "$(hostname)")\",\"ip\":\"$ip\",\"mac\":\"$mac\",\"ssid\":\"$(esc "$ssid")\",\"signal\":\"${signal:-}\",\"uptime\":${uptime:-0},\"temp\":\"${temp:-}\",\"build\":\"$(esc "$build")\",\"emmc\":\"${emmc:-}\"},
+ \"rtsp\":{\"user\":\"$(esc "$(cget rtsp username)")\",\"port\":\"$(cget rtsp port)\",\"endpoint\":\"$(cget rtsp endpoint_main)\"},
+ \"stream\":{\"width\":\"$(cget stream0 width)\",\"height\":\"$(cget stream0 height)\",\"fps\":\"$(cget stream0 fps)\",\"gop\":\"$(cget stream0 gop)\",\"bitrate\":\"$(cget stream0 bitrate)\",\"rc_mode\":\"$(cget stream0 rc_mode)\"},
+-\"image\":{\"hlc\":\"$(cget image highlight_depress)\"},
++\"image\":{\"hlc\":\"$(isp_live highlight_depress)\",\"drc\":\"$(isp_live drc_strength)\"},
+ \"osd\":{\"visible\":\"$(cget osd.timestamp visible)\",\"size\":\"$(cget osd.timestamp font_size)\",\"sizes\":\"$OSD_SIZES\"},
+ \"tz\":\"$(esc "$tz")\",\"ssh_keys\":$keys,\"default_password\":$defpw,\"iq\":$iq}"
+ }
+@@ -355,6 +363,16 @@ case "$action" in
+ 		csave
+ 		[ "$v" = 0 ] && ok "Atténuation des fortes lumières désactivée" || ok "Atténuation des fortes lumières : $v"
+ 		;;
++	drc)
++		# Dynamic range compression (local tone mapping), ratio of the IQ
++		# tuning: 128 = factory, more lifts the shadows.
++		v=$(field value)
++		printf '%s' "$v" | grep -qE '^([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])$' || fail "valeur : 0 à 255"
++		raptorctl rvd set-drc "$v" >/dev/null 2>&1 || fail "réglage refusé par raptor" "500 Internal Server Error"
++		cset image drc_strength "$v"
++		csave
++		ok "Récupération des ombres (DRC) : $v"
++		;;
+ 	stream)
+ 		fps=$(field fps)
+ 		mbps=$(field mbps)
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+index 3998272..87b2f1a 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/showmo_prj007_t32nq_gc8602_aic8800d80_defconfig
+@@ -63,3 +63,4 @@ BR2_PACKAGE_THINGINO_RAPTOR_CONF_RTSP_USERNAME="admin"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_RTSP_PASSWORD="password"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_HTTP_USERNAME="admin"
+ BR2_PACKAGE_THINGINO_RAPTOR_CONF_HTTP_PASSWORD="password"
++BR2_PACKAGE_THINGINO_RAPTOR_CONF_IMAGE_HIGHLIGHT_DEPRESS="64"
+-- 
+2.43.0
+

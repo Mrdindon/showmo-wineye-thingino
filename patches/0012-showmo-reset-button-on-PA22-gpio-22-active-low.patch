@@ -1,7 +1,7 @@
 From 5b62feaa6d4281123ced734c12cf8cc3895b956e Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 19:39:59 +0000
-Subject: [PATCH 12/22] showmo: reset button on PA22 (gpio 22, active low)
+Subject: [PATCH 12/24] showmo: reset button on PA22 (gpio 22, active low)
 
 Found by polling the GPIO pin registers while pressing the button.
 Same pin the vendor firmware exports as an input. thingino-button:

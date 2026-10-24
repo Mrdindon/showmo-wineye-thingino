@@ -1,7 +1,7 @@
 From 1c44b529cf0008dfdffe3234ddf44940b95371a9 Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 11:56:24 +0000
-Subject: [PATCH 07/22] showmo: baseline = no OSD, RTSP tcp_sndbuf 1M, IR-cut
+Subject: [PATCH 07/24] showmo: baseline = no OSD, RTSP tcp_sndbuf 1M, IR-cut
  day mode (as validated with Blue Iris)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

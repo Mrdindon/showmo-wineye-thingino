@@ -1,7 +1,7 @@
 From 7e18def1b84aa7b7d2f4458a807944b965478a40 Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 00:39:45 +0000
-Subject: [PATCH 04/22] showmo_prj007: sensor on MCLK0, 1080p main stream,
+Subject: [PATCH 04/24] showmo_prj007: sensor on MCLK0, 1080p main stream,
  Wi-Fi power save off
 
 GC8602 does not answer on I2C with the default MCLK1. 4K main stream

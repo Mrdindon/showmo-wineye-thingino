@@ -1,7 +1,7 @@
 From 1cf2b91a808351079df530944204eac28c5d63b4 Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 20:04:28 +0000
-Subject: [PATCH 14/22] showmo: day mode (no IR on this camera), drop unused
+Subject: [PATCH 14/24] showmo: day mode (no IR on this camera), drop unused
  WebRTC/RTMP push/VPN
 
 The WinEye has no IR LEDs ("full color night vision, no infrared",

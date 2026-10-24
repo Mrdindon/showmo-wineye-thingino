@@ -1,7 +1,7 @@
 From e707d93ed90060834a4d006efd90e90f950002c3 Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Wed, 21 Oct 2026 22:18:42 +0000
-Subject: [PATCH 02/22] showmo_prj007: drop IPv6 so the 4.4 kernel fits the
+Subject: [PATCH 02/24] showmo_prj007: drop IPv6 so the 4.4 kernel fits the
  1600K partition
 
 With KOPT_IPV6 the uImage is 1678857 bytes and its tail is overwritten

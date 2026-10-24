@@ -1,7 +1,7 @@
 From 8d92c9cacb3fa0cf10fcff6b4eee4616a555123c Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Sat, 24 Oct 2026 01:52:10 +0000
-Subject: [PATCH 22/22] showmo: web UI slider for the highlight compensation
+Subject: [PATCH 22/24] showmo: web UI slider for the highlight compensation
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
