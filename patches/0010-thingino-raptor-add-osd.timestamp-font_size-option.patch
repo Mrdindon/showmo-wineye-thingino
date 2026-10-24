@@ -1,7 +1,7 @@
 From 0e5e3c4817356043f1c07da4f2f1d59eee8ae469 Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 19:14:52 +0000
-Subject: [PATCH 10/20] thingino-raptor: add [osd.timestamp] font_size option
+Subject: [PATCH 10/22] thingino-raptor: add [osd.timestamp] font_size option
 
 Per-element font size for the timestamp. The global [osd] font_size
 also enlarges every other element region (privacy, uptime, camera),

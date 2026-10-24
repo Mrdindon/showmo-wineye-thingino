@@ -1,7 +1,7 @@
 From 4170b0ebbf8eed7e3e70ec232a7d6d861732a6da Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 00:39:45 +0000
-Subject: [PATCH 03/20] wifi-aic8800: add BR2_PACKAGE_WIFI_AIC8800_MODULE_OPTS
+Subject: [PATCH 03/22] wifi-aic8800: add BR2_PACKAGE_WIFI_AIC8800_MODULE_OPTS
 
 Lets a board pass extra aic8800_fdrv parameters, e.g. ps_on=0 where the
 chip stops receiving broadcast/multicast frames in power save.

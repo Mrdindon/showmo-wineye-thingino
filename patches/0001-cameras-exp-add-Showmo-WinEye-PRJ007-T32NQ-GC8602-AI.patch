@@ -1,7 +1,7 @@
 From 9f5219e0a70ee453bba2f8b63f187f174350b934 Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Wed, 21 Oct 2026 21:54:42 +0000
-Subject: [PATCH 01/20] cameras-exp: add Showmo WinEye (PRJ007, T32NQ, GC8602,
+Subject: [PATCH 01/22] cameras-exp: add Showmo WinEye (PRJ007, T32NQ, GC8602,
  AIC8800D81)
 
 AIC8800 power enable is PB25 (gpio 57), active high, verified on hardware.

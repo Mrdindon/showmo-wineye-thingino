@@ -1,7 +1,7 @@
 From 20f9a736e2c84f33de74dc27c52c5db00347bf4a Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 19:53:23 +0000
-Subject: [PATCH 13/20] showmo: speaker volume 40 (half of default 80)
+Subject: [PATCH 13/22] showmo: speaker volume 40 (half of default 80)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---

@@ -1,7 +1,7 @@
 From 5def9a22a4583f7b7bec6188ecb26d42eca40271 Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 13:59:41 +0000
-Subject: [PATCH 08/20] showmo: anti-flicker off (60 Hz lock capped exposure at
+Subject: [PATCH 08/22] showmo: anti-flicker off (60 Hz lock capped exposure at
  1/120 s, outdoor image blown out at F1.0)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

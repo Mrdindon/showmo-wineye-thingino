@@ -1,7 +1,7 @@
 From 504b1623bbd14f5464436cbad6dc31e95b07a014 Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 20:51:53 +0000
-Subject: [PATCH 17/20] showmo: two-page web UI (live view + settings)
+Subject: [PATCH 17/22] showmo: two-page web UI (live view + settings)
 
 Replaces the stock web UI (post-build.sh prunes /var/www to a whitelist):
 - index.html: 1 fps full-resolution MJPEG preview, snapshot, RTSP URL

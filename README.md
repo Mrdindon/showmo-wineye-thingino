@@ -17,7 +17,7 @@ Le script d'installation vérifie le capteur et le SoC et s'arrête sans rien é
 - **Un flux RTSP H.264** 2560×1440, 25 i/s, 15 Mb/s CBR, audio AAC, avec la date/heure incrustée.
 - **Interface web à 2 pages** (`https://<ip>/`) :
   - *Direct* : aperçu à 1 image/s en pleine résolution, photo, URL RTSP ;
-  - *Config* : débit et i/s (bouton **Défaut**), horodatage (taille, fuseau), identifiants vidéo, nom réseau, WiFi, mot de passe root et clés SSH, redémarrage, mise à jour du firmware.
+  - *Config* : débit et i/s (bouton **Défaut**), horodatage (taille, fuseau), **atténuation des fortes lumières** (curseur 0–128), identifiants vidéo, nom réseau, WiFi, mot de passe root et clés SSH, redémarrage, mise à jour du firmware.
 - **Bouton reset** : appui court = la caméra annonce son IP sur le haut-parleur ; 5 s = efface le WiFi ; 20 s = retour aux réglages d'usine.
 - Image couleur jour et nuit (la WinEye n'a pas d'infrarouge : objectif F1.0), ONVIF, NTP, SSH, eMMC en exFAT.
 - Aucun accès Internet nécessaire, aucun cloud.
@@ -43,7 +43,7 @@ Vérification (facultative) : `picocom -b 115200 /dev/ttyUSB0` puis brancher la 
 
 ### 2. Lancer l'installation (~1 h)
 ```sh
-python3 install.py --port /dev/ttyUSB0 --image showmo-wineye-thingino-v13.bin --format-emmc
+python3 install.py --port /dev/ttyUSB0 --image showmo-wineye-thingino-v14.bin --format-emmc
 ```
 Quand le script le demande, **mettre la caméra sous tension**. Il fait tout seul :
 1. arrêt du u-boot d'origine, contrôle du matériel, lecture de l'adresse MAC ;
@@ -65,9 +65,11 @@ Options utiles :
 ### 3. Après l'installation
 1. Ouvrir `https://<ip>/` (certificat auto-signé : accepter l'avertissement), se connecter en `root` / `password`.
 2. **Config › Compte root** : nouveau mot de passe. **Config › Identifiants vidéo** : nouveaux identifiants RTSP.
-3. Blue Iris : caméra « Generic/ONVIF », RTSP port 554, flux principal `/ch0`, sous-flux vide, transport TCP :
+3. Si un projecteur ou des phares éblouissent l'image (halo), **Config › Fortes lumières** : essayer 32 à 64. Désactivé par défaut,
+   car cela assombrit un peu le reste de l'image.
+4. Blue Iris : caméra « Generic/ONVIF », RTSP port 554, flux principal `/ch0`, sous-flux vide, transport TCP :
    `rtsp://<utilisateur>:<mot de passe>@<ip>:554/ch0`.
-4. Réserver l'adresse IP dans le routeur (DHCP) et, si plusieurs points d'accès diffusent le même réseau, préférer le plus proche.
+5. Réserver l'adresse IP dans le routeur (DHCP) et, si plusieurs points d'accès diffusent le même réseau, préférer le plus proche.
 
 Si une étape après l'écriture échoue (WiFi, coupure du câble…), relancer seulement la fin :
 `python3 install.py --post-only --backup backup-AAAAMMJJ-HHMMSS`.

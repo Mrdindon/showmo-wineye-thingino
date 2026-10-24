@@ -1,7 +1,7 @@
 From 1f6def3da2eb62ca4fa49216045170eef6721f66 Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 14:40:46 +0000
-Subject: [PATCH 09/20] showmo: keep IR-cut in auto mode (as validated on site)
+Subject: [PATCH 09/22] showmo: keep IR-cut in auto mode (as validated on site)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---

@@ -1,0 +1,76 @@
+From 7718dcbdc641661579c35137c77159b2b3ef2d0d Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Sat, 24 Oct 2026 01:52:10 +0000
+Subject: [PATCH 21/22] thingino-raptor-hal: highlight compensation (HLC) on
+ T32
+
+T32 has no SetHiLightDepress but provides the AE highlight compensation
+(IMP_ISP_Tuning_SetAeLightCompensation, strength 1..128). Map the
+existing set/get-highlight-depress commands and the [image]
+highlight_depress setting to it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ ...01-isp-highlight-compensation-on-T32.patch | 50 +++++++++++++++++++
+ 1 file changed, 50 insertions(+)
+ create mode 100644 package/thingino-raptor-hal/0001-isp-highlight-compensation-on-T32.patch
+
+diff --git a/package/thingino-raptor-hal/0001-isp-highlight-compensation-on-T32.patch b/package/thingino-raptor-hal/0001-isp-highlight-compensation-on-T32.patch
+new file mode 100644
+index 0000000..c5ba525
+--- /dev/null
++++ b/package/thingino-raptor-hal/0001-isp-highlight-compensation-on-T32.patch
+@@ -0,0 +1,50 @@
++From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
++Subject: [PATCH] isp: highlight compensation (HLC) on T32
++
++T32 has no SetHiLightDepress, but its libimp provides the AE highlight
++compensation: IMP_ISP_Tuning_SetAeLightCompensation(num, {mode, strength})
++with strength 1..128. Map set/get-highlight-depress to it (0 = off) and
++advertise the capability. Tested on a T32NQ/GC8602 camera: a bright
++floodlight halo shrinks markedly at 32-64.
++---
++--- a/src/hal_caps.c	2026-10-24 01:51:14.748331150 +0000
+++++ b/src/hal_caps.c	2026-10-24 01:51:14.750331284 +0000
++@@ -509,7 +509,7 @@
++     .has_bcsh_hue = true,
++     .has_sinter = false, /* via SetModuleControl only */
++     .has_temper = false, /* via SetModuleControl only */
++-    .has_highlight_depress = false,
+++    .has_highlight_depress = true, /* SetAeLightCompensation (HLC) */
++     .has_backlight_comp = false,
++     .has_ae_comp = false,
++     .has_max_gain = false,
++--- a/src/hal_isp.c	2026-10-24 01:51:14.747331082 +0000
+++++ b/src/hal_isp.c	2026-10-24 01:51:14.750331284 +0000
++@@ -735,6 +735,13 @@
++ #if defined(PLATFORM_T20) || defined(PLATFORM_T21) || defined(PLATFORM_T23) ||                     \
++     defined(PLATFORM_T30) || defined(PLATFORM_T31)
++     return IMP_ISP_Tuning_SetHiLightDepress((uint32_t)v);
+++#elif defined(PLATFORM_T32)
+++    /* T32: highlight compensation (HLC) of the AE, strength 1..128, 0 = off */
+++    IMPISPAeLightCompensationAttr attr = {
+++        .mode = v ? IMPISP_HLC_ENABLE : IMPISP_HBLC_DISABLE,
+++        .strength = v > 128 ? 128 : (v ? v : 1),
+++    };
+++    return IMP_ISP_Tuning_SetAeLightCompensation(IMPVI_MAIN, &attr);
++ #else
++     (void)v;
++     return RSS_ERR_NOTSUP;
++@@ -1300,6 +1307,13 @@
++         return ret;
++     *val = (uint8_t)strength;
++     return RSS_OK;
+++#elif defined(PLATFORM_T32)
+++    IMPISPAeLightCompensationAttr attr;
+++    int ret = IMP_ISP_Tuning_GetAeLightCompensation(IMPVI_MAIN, &attr);
+++    if (ret != 0)
+++        return ret;
+++    *val = attr.mode == IMPISP_HLC_ENABLE ? attr.strength : 0;
+++    return RSS_OK;
++ #else
++     (void)val;
++     return RSS_ERR_NOTSUP;
+-- 
+2.43.0
+

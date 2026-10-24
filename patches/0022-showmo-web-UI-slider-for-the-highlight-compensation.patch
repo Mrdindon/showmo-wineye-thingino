@@ -1,0 +1,96 @@
+From 8d92c9cacb3fa0cf10fcff6b4eee4616a555123c Mon Sep 17 00:00:00 2001
+From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
+Date: Sat, 24 Oct 2026 01:52:10 +0000
+Subject: [PATCH 22/22] showmo: web UI slider for the highlight compensation
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Config page, "Fortes lumières": 0 (off, default) to 128, applied live
+with raptorctl and saved in [image] highlight_depress.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../overlay/var/www/config.html                    | 14 ++++++++++++++
+ .../overlay/var/www/x/showmo.cgi                   | 12 ++++++++++++
+ 2 files changed, 26 insertions(+)
+
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
+index 44b599d..de2aad1 100644
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/config.html
+@@ -47,6 +47,14 @@
+ 		<div class="row"><button id="osd">Appliquer</button></div>
+ 	</div>
+ 
++	<div class="card">
++		<h2>Fortes lumières</h2>
++		<label for="hlc">Atténuation (0 = désactivée, 128 = maximum) : <strong id="hlcval">0</strong></label>
++		<input id="hlc" type="range" min="0" max="128" step="8">
++		<p class="hint">Réduit le halo d'un projecteur ou de phares dans le champ, en assombrissant un peu le reste de l'image. Appliqué en direct ; vérifier sur l'aperçu (Direct) ou dans Blue Iris. Valeur conseillée si besoin : 32 à 64.</p>
++		<div class="row"><button id="hlcbtn">Appliquer</button><button id="hlcoff" class="alt">Désactiver</button></div>
++	</div>
++
+ 	<div class="card">
+ 		<h2>Identifiants vidéo (RTSP, aperçu)</h2>
+ 		<label for="ruser">Utilisateur</label>
+@@ -126,6 +134,8 @@ async function load() {
+ 	$("osdvis").checked = st.osd.visible === "true";
+ 	$("osdsize").innerHTML = st.osd.sizes.split(" ").map((s) => `<option>${s}</option>`).join("");
+ 	$("osdsize").value = st.osd.size || "64";
++	$("hlc").value = st.image.hlc || 0;
++	$("hlcval").textContent = $("hlc").value;
+ 	$("ruser").value = st.rtsp.user;
+ 	$("ssid").value = d.ssid;
+ 	$("host").value = d.hostname;
+@@ -144,6 +154,10 @@ $("osd").onclick = (e) => busy(e.target, async () => {
+ 	await post("osd", { visible: $("osdvis").checked ? "true" : "false", size: $("osdsize").value });
+ });
+ 
++$("hlc").oninput = () => ($("hlcval").textContent = $("hlc").value);
++$("hlcbtn").onclick = (e) => busy(e.target, () => post("hlc", { value: $("hlc").value }));
++$("hlcoff").onclick = (e) => busy(e.target, () => post("hlc", { value: 0 }).then(load));
++
+ $("rtsp").onclick = (e) => busy(e.target, async () => {
+ 	if (!$("rpass").value) return toast("Entrez le nouveau mot de passe RTSP", false);
+ 	const j = await post("rtsp", { user: $("ruser").value, pass: $("rpass").value });
+diff --git a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi
+index cbff086..6186071 100755
+--- a/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi
++++ b/configs/cameras-exp/showmo_prj007_t32nq_gc8602_aic8800d80/overlay/var/www/x/showmo.cgi
+@@ -12,6 +12,7 @@
+ #      hostname  name            network name (DHCP, mDNS)
+ #      tz        tz              time zone name from /usr/share/tz.json
+ #      osd       visible size    timestamp overlay
++#      hlc       value           highlight compensation 0 (off) .. 128
+ #      stream    fps mbps        main stream rate
+ #      stream-default            back to 25 fps / GOP 25 / CBR 15 Mb/s
+ #      reboot
+@@ -123,6 +124,7 @@ status() {
+ \"device\":{\"hostname\":\"$(esc "$(hostname)")\",\"ip\":\"$ip\",\"mac\":\"$mac\",\"ssid\":\"$(esc "$ssid")\",\"signal\":\"${signal:-}\",\"uptime\":${uptime:-0},\"temp\":\"${temp:-}\",\"build\":\"$(esc "$build")\",\"emmc\":\"${emmc:-}\"},
+ \"rtsp\":{\"user\":\"$(esc "$(cget rtsp username)")\",\"port\":\"$(cget rtsp port)\",\"endpoint\":\"$(cget rtsp endpoint_main)\"},
+ \"stream\":{\"width\":\"$(cget stream0 width)\",\"height\":\"$(cget stream0 height)\",\"fps\":\"$(cget stream0 fps)\",\"gop\":\"$(cget stream0 gop)\",\"bitrate\":\"$(cget stream0 bitrate)\",\"rc_mode\":\"$(cget stream0 rc_mode)\"},
++\"image\":{\"hlc\":\"$(cget image highlight_depress)\"},
+ \"osd\":{\"visible\":\"$(cget osd.timestamp visible)\",\"size\":\"$(cget osd.timestamp font_size)\",\"sizes\":\"$OSD_SIZES\"},
+ \"tz\":\"$(esc "$tz")\",\"ssh_keys\":$keys,\"default_password\":$defpw,\"iq\":$iq}"
+ }
+@@ -343,6 +345,16 @@ case "$action" in
+ 		later "/etc/init.d/S31raptor restart"
+ 		ok "Horodatage enregistré : la vidéo redémarre (environ 20 s)"
+ 		;;
++	hlc)
++		# Highlight compensation (AE light compensation on T32): applied live,
++		# kept in [image] highlight_depress for the next start.
++		v=$(field value)
++		printf '%s' "$v" | grep -qE '^([0-9]|[1-9][0-9]|1[01][0-9]|12[0-8])$' || fail "valeur : 0 à 128"
++		raptorctl rvd set-highlight-depress "$v" >/dev/null 2>&1 || fail "réglage refusé par raptor" "500 Internal Server Error"
++		cset image highlight_depress "$v"
++		csave
++		[ "$v" = 0 ] && ok "Atténuation des fortes lumières désactivée" || ok "Atténuation des fortes lumières : $v"
++		;;
+ 	stream)
+ 		fps=$(field fps)
+ 		mbps=$(field mbps)
+-- 
+2.43.0
+

@@ -1,7 +1,7 @@
 From f95bb17a9c5f51fd2953d9de42229859f56d5425 Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 10:45:24 +0000
-Subject: [PATCH 05/20] showmo: single 4K H.264 stream for Blue Iris (IVDC,
+Subject: [PATCH 05/22] showmo: single 4K H.264 stream for Blue Iris (IVDC,
  600MHz, 25fps CBR 15Mbps, stream1/webrtc off)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

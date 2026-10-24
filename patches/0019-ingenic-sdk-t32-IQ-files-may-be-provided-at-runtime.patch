@@ -1,7 +1,7 @@
 From b505bb73c8aa2f61dac515d946578ac15cdec967 Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 21:21:38 +0000
-Subject: [PATCH 19/20] ingenic-sdk: t32 IQ files may be provided at runtime
+Subject: [PATCH 19/22] ingenic-sdk: t32 IQ files may be provided at runtime
 
 The PRJ007 IQ files of the T32 boards come from the vendor firmware.
 Warn instead of failing when they are absent from sensor-iq/t32/, so

@@ -1,7 +1,7 @@
 From 8dd9bc89a0ef8b112091dd8015d94638b38cc6a6 Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 20:51:53 +0000
-Subject: [PATCH 16/20] thingino-raptor: keep the JPEG channel on single-sensor
+Subject: [PATCH 16/22] thingino-raptor: keep the JPEG channel on single-sensor
  IVDC streams
 
 rvd skipped JPEG for every IVDC stream because of a T23 dual-sensor SDK

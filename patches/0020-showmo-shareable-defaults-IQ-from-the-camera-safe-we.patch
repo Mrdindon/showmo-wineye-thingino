@@ -1,7 +1,7 @@
 From ab60a4b15698acd08ff4a8e9a992ba63281c9cce Mon Sep 17 00:00:00 2001
 From: Mrdindon <5002201+Mrdindon@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 21:21:38 +0000
-Subject: [PATCH 20/20] showmo: shareable defaults, IQ from the camera, safe
+Subject: [PATCH 20/22] showmo: shareable defaults, IQ from the camera, safe
  web upgrade
 
 - Default credentials root/password, RTSP and HTTP admin/password; the
