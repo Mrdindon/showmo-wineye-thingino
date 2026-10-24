@@ -26,6 +26,7 @@ import hashlib
 import io
 import os
 import re
+import subprocess
 import sys
 import time
 import zipfile
@@ -98,14 +99,15 @@ class Console:
         self.s.write(line.encode() + b"\n")
 
     def run(self, cmd, timeout=60, check=True):
-        """Runs a shell command, returns (rc, output without the echo)."""
+        """Runs a shell command, returns (rc, output). The output is taken
+        between a start and an end marker printed by the shell itself, so the
+        tty echo of the command (wrapped at 80 columns) is never parsed."""
         self.n += 1
-        tag = f"@@{self.n}@@"
+        n = self.n
         self.buf = b""
-        self.send(f'{cmd}; echo "{tag}$?"')
-        m = self.expect(rb"([\s\S]*?)" + re.escape(tag.encode()) + rb"(\d+)", timeout)
+        self.send(f'echo "@@S{n}@@"; {cmd}; echo "@@{n}@@$?"')
+        m = self.expect(rb"(?:^|\n)@@S%d@@\r?\n([\s\S]*?)@@%d@@(\d+)" % (n, n), timeout)
         out = m.group(1).decode(errors="replace").replace("\r", "")
-        out = out.split("\n", 1)[1] if "\n" in out else ""  # drop the echoed command
         rc = int(m.group(2))
         if check and rc:
             raise RuntimeError(f"`{cmd}` failed (rc={rc}): {out.strip()[-300:]}")
@@ -115,10 +117,11 @@ class Console:
 def _get_file(con, path, size_hint=0):
     """Reads a remote file through `base64`, decoding as it streams."""
     con.n += 1
-    tag = f"@@{con.n}@@".encode()
+    n = con.n
+    tag = f"@@{n}@@".encode()
     con.buf = b""
-    con.send(f'base64 {path}; echo "@@{con.n}@@$?"')
-    con.expect(rb"\n", 10)  # the echoed command line
+    con.send(f'echo "@@S{n}@@"; base64 {path}; echo "@@{n}@@$?"')
+    con.expect(rb"(?:^|\n)@@S%d@@\r?\n" % n, 20)  # skip the (possibly wrapped) echo
     out = bytearray()
     pending = con.buf
     con.buf = b""
@@ -145,7 +148,7 @@ def _get_file(con, path, size_hint=0):
                 f"~{(size_hint - len(out)) / max(rate, 1) / 60:.0f} min restantes)")
 
 
-def _put_file(con, data, path):
+def _send_b64(con, data, path):
     """Writes bytes to a remote file through `base64 -d`, using the tty echo
     as flow control (a batch of lines is sent once the previous one is back)."""
     text = base64.encodebytes(data).decode().splitlines()
@@ -153,39 +156,101 @@ def _put_file(con, data, path):
     con.send(f"base64 -d > {path}")
     con.expect(rb"\n", 10)
     sent = echoed = 0
-    t0 = last = time.time()
     batch = 24
+    last = time.time()
     while sent < len(text):
         chunk = text[sent:sent + batch]
         con.s.write(("\n".join(chunk) + "\n").encode())
         sent += len(chunk)
         while echoed < sent:
-            data = con.s.read(4096)
-            if data:
-                echoed += data.count(b"\n")
-            elif time.time() - last > 20 and echoed < sent - batch:
+            data_in = con.s.read(4096)
+            if data_in:
+                con.log.write(data_in)
+                echoed += data_in.count(b"\n")
+                last = time.time()
+            elif time.time() - last > 20:
                 raise TimeoutError("no echo from the camera while sending data")
-        if time.time() - last > 30:
-            last = time.time()
-            say(f"  {sent * 100 // len(text)} % envoyés, "
-                f"~{(len(text) - sent) * (last - t0) / sent / 60:.0f} min restantes")
     con.s.write(b"\x04")  # end of input for base64 -d
-    time.sleep(1)
+    time.sleep(0.3)
     con.buf = b""
+
+
+def _put_file(con, data, path, block=32768):
+    """Sends a file in md5-checked blocks: the serial line has no flow control
+    and an occasional character can be altered on the way to the camera."""
+    con.run(f": > {path}")
+    t0 = last = time.time()
+    for off in range(0, len(data), block):
+        part = data[off:off + block]
+        for attempt in range(1, 6):
+            _send_b64(con, part, "/tmp/.blk")
+            _, out = con.run("md5sum /tmp/.blk", timeout=60, check=False)
+            if out.split() and out.split()[0] == md5(part):
+                break
+            say(f"  bloc {off // block} altéré en transmission, renvoi ({attempt})")
+        else:
+            raise RuntimeError("liaison série trop bruitée (5 échecs sur un même bloc) : vérifier les fils")
+        con.run(f"cat /tmp/.blk >> {path} && rm /tmp/.blk")
+        if len(data) > 1 << 20 and time.time() - last > 30:
+            last = time.time()
+            done = off + len(part)
+            say(f"  {done * 100 // len(data)} % envoyés, "
+                f"~{(len(data) - done) * (last - t0) / done / 60:.0f} min restantes")
     rc, out = con.run(f"md5sum {path}", timeout=120)
     got = out.split()[0] if out.split() else ""
     if got != md5(data):
         raise RuntimeError(f"{path}: md5 {got} != {md5(data)}")
 
 
+def catch_uboot(con, timeout):
+    """Floods Ctrl-B while the camera powers up: the vendor u-boot has
+    bootdelay=0 and checks the console only once. Returns 'vendor' (stopped
+    at PRJ007#), 'thingino' or 'missed' (the kernel started)."""
+    con.s.timeout = 0
+    con.buf = b""
+    end = time.time() + timeout
+    try:
+        while time.time() < end:
+            con.s.write(b"\x02" * 8)
+            time.sleep(0.002)
+            con._read()
+            if b"PRJ007#" in con.buf:
+                return "vendor"
+            if re.search(rb"U-Boot 20[2-9]\d", con.buf):
+                return "thingino"
+            if b"Starting kernel" in con.buf:
+                return "missed"
+    finally:
+        con.s.timeout = 0.05
+    raise TimeoutError("aucune sortie u-boot : vérifier le câble série (TX/RX croisés ?) et l'alimentation")
+
+
 def step_uboot(con, args):
-    say("Mettez la caméra sous tension maintenant (ou débranchez/rebranchez-la).")
-    m = con.expect(rb"PRJ007#|isvp|Thingino|U-Boot 20[2-9]\d", 180, poke=b"\x02")
-    if m.group(0) != b"PRJ007#":
-        con.expect(rb"PRJ007#|=> |# ", 10, poke=b"\x02")
-        sys.exit("Cette caméra ne démarre pas sur le u-boot vendor (thingino déjà installé ?). "
-                 "Utilisez la page web Config > Mise à jour, ou --post-only.")
-    con.expect(rb"PRJ007# ", 5, poke=b"\n")
+    for attempt in range(1, 4):
+        if args.power_cmd:
+            if args.power_off_cmd:
+                subprocess.run(args.power_off_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                time.sleep(5)
+            say(f"Mise sous tension de la caméra (essai {attempt})…")
+            subprocess.Popen(args.power_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            say("Mettez la caméra sous tension maintenant (ou débranchez/rebranchez-la).")
+        state = catch_uboot(con, 180)
+        if state == "vendor":
+            break
+        if state == "thingino":
+            sys.exit("Cette caméra démarre déjà sur le u-boot thingino : utilisez la page web "
+                     "Config > Mise à jour, ou --post-only.")
+        say("u-boot pas interrompu à temps (le noyau a démarré).")
+        if not (args.power_cmd and args.power_off_cmd):
+            sys.exit("Débranchez la caméra, relancez le script, puis rebranchez-la quand il le demande.")
+    else:
+        sys.exit("Impossible d'interrompre le u-boot après 3 essais.")
+    time.sleep(0.5)
+    con.s.reset_input_buffer()
+    con.buf = b""
+    con.send("")
+    con.expect(rb"PRJ007# ", 5)
     con.buf = b""
     con.send("printenv")
     m = con.expect(rb"([\s\S]*?)PRJ007# ", 10)
@@ -213,12 +278,45 @@ def step_vendor_shell(con):
     con.run("mount -t proc proc /proc 2>/dev/null; mount -t sysfs sysfs /sys 2>/dev/null; "
             "mount -t tmpfs tmpfs /tmp; echo 1 > /proc/sys/kernel/printk")
     con.run("[ -e /dev/mtd6 ] || mount -t devtmpfs devtmpfs /dev")
+    check_mtd(con)
+
+
+def check_mtd(con):
     _, mtd = con.run("cat /proc/mtd")
     sizes = re.findall(r"^mtd(\d): ([0-9a-f]+)", mtd, re.M)
     want = {str(n): f"{s:08x}" for n, (_, s) in VENDOR_MTD.items()}
     want["6"] = f"{FLASH_SIZE:08x}"
     if dict(sizes) != want:
         sys.exit(f"Partitions inattendues :\n{mtd}")
+
+
+def step_vendor_wifi(con, args):
+    """Reads the Wi-Fi network of the vendor firmware (config partition), so
+    thingino can join the same network without typing its password."""
+    con.run("mkdir -p /tmp/cfg && mount -t jffs2 -o ro /dev/mtdblock4 /tmp/cfg", check=False)
+    _, conf = con.run("cat /tmp/cfg/wpa_supplicant.conf 2>/dev/null", check=False)
+    con.run("umount /tmp/cfg", check=False)
+    ssid = re.search(r'^\s*ssid="(.*)"\s*$', conf, re.M)
+    psk = re.search(r'^\s*psk=("(.*)"|([0-9a-fA-F]{64}))\s*$', conf, re.M)
+    if ssid and psk:
+        (args.backup / "wifi-vendor.txt").write_text(f"{ssid.group(1)}\n{psk.group(1)}\n")
+        say(f"WiFi du firmware d'origine : « {ssid.group(1)} » (repris par thingino)")
+    else:
+        say("WiFi du firmware d'origine introuvable : utilisez --wifi-ssid")
+
+
+def wifi_psk(args):
+    """(ssid, 64-hex PSK) from --wifi-ssid/--wifi-pass or the vendor config."""
+    if args.wifi_ssid:
+        return args.wifi_ssid, hashlib.pbkdf2_hmac(
+            "sha1", args.wifi_pass.encode(), args.wifi_ssid.encode(), 4096, 32).hex()
+    f = args.backup / "wifi-vendor.txt"
+    if not f.exists():
+        return None, None
+    ssid, psk = f.read_text().split("\n")[:2]
+    if psk.startswith('"'):
+        psk = hashlib.pbkdf2_hmac("sha1", psk.strip('"').encode(), ssid.encode(), 4096, 32).hex()
+    return ssid, psk
 
 
 def step_backup(con, args):
@@ -250,15 +348,19 @@ def step_iq(con, args):
 
 
 def step_flash(con, image):
-    say("Envoi de l'image thingino à la caméra (~15 min)…")
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
-        z.writestr("image.bin", image)
-    _put_file(con, buf.getvalue(), "/tmp/image.zip")
-    con.run("cd /tmp && unzip -o -q image.zip && rm image.zip && cd /", timeout=120)
-    _, out = con.run("md5sum /tmp/image.bin", timeout=120)
-    if out.split()[0] != md5(image):
-        sys.exit("Image corrompue après décompression : rien n'a été écrit, relancez.")
+    _, out = con.run("md5sum /tmp/image.bin 2>/dev/null", timeout=120, check=False)
+    if out.split() and out.split()[0] == md5(image):
+        say("Image déjà présente en RAM (md5 OK) : envoi sauté")
+    else:
+        say("Envoi de l'image thingino à la caméra (~17 min)…")
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+            z.writestr("image.bin", image)
+        _put_file(con, buf.getvalue(), "/tmp/image.zip")
+        con.run("cd /tmp && unzip -o -q image.zip && rm image.zip && cd /", timeout=120)
+        _, out = con.run("md5sum /tmp/image.bin", timeout=120)
+        if out.split()[0] != md5(image):
+            sys.exit("Image corrompue après décompression : rien n'a été écrit, relancez.")
     # Writing mtd2 replaces the rootfs we are running from: do everything with
     # a busybox and its libraries copied to RAM.
     con.run("mkdir -p /tmp/rt/bin /tmp/rt/lib /tmp/rt/dev /tmp/rt/tmp && cp /bin/busybox /tmp/rt/bin/ && "
@@ -268,7 +370,7 @@ def step_flash(con, image):
             "mount --bind /dev /tmp/rt/dev && mount --bind /tmp /tmp/rt/tmp")
     con.send("chroot /tmp/rt /bin/busybox sh")
     time.sleep(1)
-    con.run("export PATH=/bin; busybox --install -s /bin 2>/dev/null; busybox true")
+    con.run("export PATH=/bin; busybox --install -s /bin 2>/dev/null; :")
     say("Écriture de la flash (u-boot d'abord, ~2 min) — NE PAS COUPER L'ALIMENTATION")
     for n in WRITE_ORDER:
         off, size = VENDOR_MTD[n]
@@ -319,11 +421,11 @@ def step_post(con, args, mac, iq_dir):
     if mac:
         con.run(f"jct /etc/thingino.json set wlan.mac {mac}")
         say(f"MAC d'origine restaurée : {mac}")
-    if args.wifi_ssid:
-        psk = hashlib.pbkdf2_hmac("sha1", args.wifi_pass.encode(), args.wifi_ssid.encode(), 4096, 32).hex()
-        ssid = args.wifi_ssid.replace("'", "'\\''")
-        con.run(f"wlan configure '{ssid}' {psk}")
-        say(f"WiFi configuré : {args.wifi_ssid}")
+    ssid, psk = wifi_psk(args)
+    if ssid:
+        q = ssid.replace("'", "'\\''")
+        con.run(f"wlan configure '{q}' {psk}")
+        say(f"WiFi configuré : {ssid}")
     if args.hostname:
         con.run(f"echo {args.hostname} > /etc/hostname && sed -i '/^127.0.1.1/c127.0.1.1\\t{args.hostname}' /etc/hosts")
     if args.format_emmc:
@@ -349,7 +451,7 @@ def step_post(con, args, mac, iq_dir):
     print(f"  Vidéo (raptor)  : {video.strip()}   IQ : {'OK' if 'day' in iq else 'ABSENTS'}")
     if ip:
         print(f"  Interface web   : https://{ip}/   (root / {'<votre mot de passe>' if args.root_password != 'password' else 'password'})")
-        print(f"  Flux RTSP       : rtsp://admin:password@{ip}:554/ch0")
+        print(f"  Flux RTSP       : rtsp://<utilisateur>:<mot de passe>@{ip}:554/ch0   (image publique : admin / password)")
     else:
         print("  Pas d'adresse IP : configurez le WiFi (relancez avec --post-only --wifi-ssid …)")
     print(f"  Sauvegarde vendor : {args.backup}")
@@ -368,6 +470,13 @@ def main():
     p.add_argument("--format-emmc", action="store_true", help="formater l'eMMC en exFAT (efface le contenu vendor)")
     p.add_argument("--post-only", action="store_true",
                    help="caméra déjà flashée : seulement la configuration (IQ, MAC, WiFi…)")
+    p.add_argument("--backup-only", action="store_true",
+                   help="s'arrêter après la sauvegarde et la copie des IQ (rien n'est écrit) ; "
+                        "la caméra reste dans le shell vendor pour --resume-flash")
+    p.add_argument("--resume-flash", action="store_true",
+                   help="reprendre après --backup-only : écriture puis configuration (même --backup)")
+    p.add_argument("--power-cmd", help="commande qui met la caméra sous tension (relais…)")
+    p.add_argument("--power-off-cmd", help="commande qui coupe la caméra (pour réessayer seul)")
     args = p.parse_args()
 
     from pathlib import Path
@@ -394,10 +503,34 @@ def main():
     if len(image) != FLASH_SIZE or image[0x70000:0x70004] != b"\x27\x05\x19\x56" or image[0x200000:0x200004] != b"hsqs":
         sys.exit(f"{args.image} n'est pas une image thingino complète de 16 Mo")
     say(f"Image {args.image} : md5 {md5(image)}")
+    if args.resume_flash:
+        iq_dir = args.backup / "iq"
+        if not (args.backup / "vendor-flash-16M.bin").exists() or not all((iq_dir / n).exists() for n in IQ_FILES):
+            sys.exit(f"--resume-flash : sauvegarde ou IQ absents de {args.backup}")
+        mac = (args.backup / "mac.txt").read_text().strip()
+        con.send("")
+        con.expect(rb"[#$] $", 10)
+        # A previous run may have stopped inside the RAM chroot (no /proc there):
+        # leave it. Never send "exit" to the bare init shell (kernel panic).
+        _, where = con.run("[ -d /proc/1 ] && echo HOST || echo CHROOT", check=False)
+        if "CHROOT" in where:
+            con.send("exit")
+            time.sleep(1)
+            con.send("")
+            con.expect(rb"[#$] $", 10)
+        check_mtd(con)
+        step_flash(con, image)
+        step_post(con, args, mac, iq_dir)
+        return
     mac = step_uboot(con, args)
     step_vendor_shell(con)
     step_backup(con, args)
     step_iq(con, args)
+    step_vendor_wifi(con, args)
+    if args.backup_only:
+        say(f"Sauvegarde terminée dans {args.backup} ; rien n'a été écrit. La caméra reste dans le shell "
+            f"vendor : relancer avec --resume-flash --backup {args.backup} pour écrire.")
+        return
     step_flash(con, image)
     step_post(con, args, mac, args.backup / "iq")
 

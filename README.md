@@ -43,19 +43,22 @@ Vérification (facultative) : `picocom -b 115200 /dev/ttyUSB0` puis brancher la 
 
 ### 2. Lancer l'installation (~1 h)
 ```sh
-python3 install.py --port /dev/ttyUSB0 --image showmo-wineye-thingino-v13.bin \
-        --wifi-ssid "MonWiFi" --format-emmc
+python3 install.py --port /dev/ttyUSB0 --image showmo-wineye-thingino-v13.bin --format-emmc
 ```
 Quand le script le demande, **mettre la caméra sous tension**. Il fait tout seul :
 1. arrêt du u-boot d'origine, contrôle du matériel, lecture de l'adresse MAC ;
 2. **sauvegarde complète de la flash d'origine** vers le PC (~35 min, vérifiée par md5) ;
-3. copie des fichiers de calibration du capteur depuis le firmware d'origine (ils ne sont pas dans l'image) ;
-4. envoi de l'image (~15 min) et écriture, u-boot d'abord, chaque partition relue et vérifiée ;
+3. copie des fichiers de calibration du capteur et du réseau WiFi depuis le firmware d'origine (ils ne sont pas dans l'image) ;
+4. envoi de l'image (~17 min, par blocs vérifiés) et écriture, u-boot d'abord, chaque partition relue et vérifiée ;
 5. premier démarrage de thingino : mot de passe root, MAC d'origine, calibration, WiFi, eMMC ;
 6. redémarrage et affichage de l'adresse IP.
 
-Options utiles : `--root-password <mdp>` (sinon `password`), `--hostname <nom>`, sans `--wifi-ssid` le WiFi est à régler plus tard
-(`--post-only`). Sans `--format-emmc`, l'eMMC garde son format d'origine (ext4), illisible par thingino.
+Options utiles :
+- `--wifi-ssid "<réseau>"` (mot de passe demandé) : un autre réseau que celui du firmware d'origine, repris par défaut ;
+- `--root-password <mdp>` (sinon `password`), `--hostname <nom>` ;
+- `--format-emmc` : sans lui, l'eMMC garde son format d'origine (ext4), illisible par thingino ;
+- `--backup-only` puis `--resume-flash --backup <dossier>` : s'arrêter après la sauvegarde (rien n'est écrit, la caméra attend dans
+  le shell d'origine), vérifier, puis lancer l'écriture.
 
 **Ne pas couper l'alimentation pendant l'écriture** (étape 4, ~2 min, annoncée par le script).
 
@@ -67,7 +70,16 @@ Options utiles : `--root-password <mdp>` (sinon `password`), `--hostname <nom>`,
 4. Réserver l'adresse IP dans le routeur (DHCP) et, si plusieurs points d'accès diffusent le même réseau, préférer le plus proche.
 
 Si une étape après l'écriture échoue (WiFi, coupure du câble…), relancer seulement la fin :
-`python3 install.py --post-only --backup backup-AAAAMMJJ-HHMMSS --wifi-ssid "MonWiFi"`.
+`python3 install.py --post-only --backup backup-AAAAMMJJ-HHMMSS`.
+
+### Dépannage
+- **« u-boot pas interrompu à temps »** à chaque essai alors que le démarrage s'affiche : la caméra ne reçoit rien du PC.
+  Vérifier le fil `TX` de l'adaptateur → `RX` de la caméra (soudure, croisement).
+- **« bloc … altéré en transmission »** de temps en temps : normal, le bloc est renvoyé. Si un bloc échoue 5 fois, la liaison est
+  trop bruitée : refaire les soudures, raccourcir les fils.
+- Une erreur **avant** « Écriture de la flash » ne modifie rien : relancer (`--resume-flash --backup <dossier>` si la sauvegarde est
+  faite, la caméra étant restée dans le shell d'origine). Une erreur **pendant** l'écriture : ne pas couper l'alimentation, relancer
+  `--resume-flash` (l'image déjà envoyée n'est pas renvoyée).
 
 ## Mises à jour
 Interface web › Config › **Mise à jour du firmware** : envoyer l'image complète d'une nouvelle *Release*. Seuls le noyau et le système sont
@@ -94,8 +106,7 @@ Hôte Linux, ~40 Go libres, outils de build thingino + `lzop`. L'image produite 
 - Pas d'aperçu vidéo fluide dans le navigateur (WebRTC impossible faute de mémoire) : l'aperçu est à 1 image/s, la vidéo complète passe par RTSP.
 - Horodatage : uniquement via l'OSD du processeur d'image (celui de l'encodeur bloque la caméra en mode IVDC) ; régler sa taille dans la page Config, pas ailleurs.
 - eMMC en exFAT sans vérification au démarrage (`fsck` absent).
-- `install.py` reproduit la procédure validée manuellement sur la caméra de référence, mais n'a pas encore été exécuté d'un bout à l'autre
-  sur une caméra neuve : garder la console série ouverte la première fois et signaler tout écart.
+- `install.py` a été validé de bout en bout sur une 2e caméra neuve (firmware d'origine → thingino v13, 2026-10-23).
 
 ## Contenu du dépôt
 | Fichier | Rôle |
